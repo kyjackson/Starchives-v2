@@ -1,0 +1,106 @@
+<script>
+    // set current page as the active one in the navbar
+    // reference: https://stackoverflow.com/questions/20060467/add-active-navigation-class-based-on-url
+    $(function(){
+        var currentPath = location.pathname;
+        
+        $(".nav-link").each(function(){
+            var navLink = $(this);
+            // if the current path is like this link, make it active
+            if(navLink.attr("href") === currentPath){
+                navLink.addClass("active");
+                navLink.attr("aria-current", "page");
+            }
+        })
+    })
+</script>
+
+<footer class="container p-4 mt-0 text-light border-top d-flex justify-content-between">
+    <div class="disclaimers text-start float-start">
+        <p class="divider links-header">Disclaimers</p>
+        <hr class="divider"/>
+
+        <p>
+            This is an unofficial Star Citizen fansite, affiliated with neither the Cloud Imperium group of companies nor 
+            with other unofficial fansites. All content on this site not authored by its host or users are property 
+            of their respective owners.
+        </p>
+
+        <p>
+            Star Citizen®, Roberts Space Industries®, and Cloud Imperium® are registered trademarks of Cloud Imperium 
+            Rights LLC.
+        </p>
+
+        <p>
+            Background photo is of a pilot observing the Hurston Dynamics building midflight, captured in-game by Intelo.
+        </p>
+        
+        <p>
+            © 2022 - Starchives, designed and developed for the Star Citizen community, 
+            by <a href="https://robertsspaceindustries.com/citizens/Intelo">Intelo</a>.
+        </p>
+    </div>
+
+    <div class="links text-start">
+        <p class="divider links-header">Official RSI Resources</p>
+        <hr class="divider"/>
+        
+        <p >
+            <a href="https://robertsspaceindustries.com/">Star Citizen Website</a>
+            <br/>
+            <a href="https://www.youtube.com/channel/UCTeLqJq1mXUX5WWoNXLmOIA">Star Citizen Youtube Channel</a>
+            <br/>
+            <a href="https://robertsspaceindustries.com/starmap">ARK Starmap</a>
+            <br/>
+            <a href="https://robertsspaceindustries.com/community/devtracker">Dev Tracker</a>
+            <br/>
+            <a href="https://robertsspaceindustries.com/funding-goals">Funding</a>
+            <br/>
+            <a href="https://robertsspaceindustries.com/galactapedia">Galactapedia</a>
+            <br/>
+            <a href="https://robertsspaceindustries.com/patch-notes">Patch Notes</a>
+            <br/>
+            <a href="https://robertsspaceindustries.com/roadmap">Progress Tracker</a>
+            <br/>
+            <a href="https://robertsspaceindustries.com/telemetry">Telemetry</a>
+            <br/>
+            <a href="https://robertsspaceindustries.com/spectrum/community/SC">Spectrum</a>
+        </p>
+    </div>
+
+    <div class="links flex-fill text-start">
+        <p class="divider links-header">My Favorite Community Resources</p>
+        <hr class="divider"/>
+
+        <p class="text-start">
+            <a href="https://finder.cornerstonebase.space/">Universal Item Finder</a>
+            <br/>
+            <a href="https://www.erkul.games/live/calculator">#DPSCalculator</a>
+            <br/>
+            <a href="https://starcitizen.tools/">Star Citizen Wiki</a>
+        </p>
+    </div>
+
+    <div class="logo float-end">
+        <figure class="figure">
+            <a href="https://scfocus.org/resources/">
+                <img class="h-100 figure-img img-fluid rounded" src="img/MadeByTheCommunity_Black.png" alt="This is an unofficial Star Citizen fan site." width="128" height="128"/>
+            </a>
+        </figure>
+    </div>
+  
+</footer>
+
+<script>
+    // set all links after the navbar to open in a new tab
+    $("main a").attr({
+        target: "_blank",
+        rel: "noreferrer noopener"
+    });
+</script>
+
+</main>
+</div>
+
+</body>
+</html>
