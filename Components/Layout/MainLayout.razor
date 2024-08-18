@@ -1,25 +1,44 @@
 ﻿@inherits LayoutComponentBase
+@inject IJSRuntime JSRuntime
+
+@*
+    This component sets up the nav menu, header, and footer for use by each page.
+*@
 
 <div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+	<div class="sidebar">
+		<NavMenu/>
+	</div>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+	<main>
 
-        <article class="content px-4">
-	        @Body
-        </article>
-        
-        <!--TODO: add footer-->
-    </main>
+		@* Cover div containing both header and main content of the body *@
+		<div class="cover-container d-flex justify-content-center w-100 h-100 p-4 flex-column">
+
+			<Header />
+
+			<article class="content px-4">
+				@Body
+			</article>
+			
+			<Footer />
+
+		</div>
+		
+		@* Make all external links open in new tabs *@
+		<script>
+			$("main a").attr({
+				target: "_blank",
+				rel: "noreferrer noopener"
+			});
+		</script>
+
+	</main>
 </div>
 
 <div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
-    <a class="dismiss">🗙</a>
+	An unhandled error has occurred.
+	<a href="" class="reload">Reload</a>
+	<a class="dismiss">🗙</a>
 </div>
+

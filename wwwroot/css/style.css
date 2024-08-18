@@ -2,12 +2,7 @@
  * Background
  */
 .bg-image {
-    background:
-        linear-gradient(
-            rgba(0, 0, 0, 0.3), 
-            rgba(0, 0, 0, 0.3)
-        ),
-        url('../img/backgrounds/bg-sunrise-HR-min.png');
+    background: linear-gradient( rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3) ), url('../img/backgrounds/bg-sunrise-HR-min.png');
     /* background-image: url('../img/backgrounds/bg-sunrise-HR-min.png'); */
     /* background-image: url('../img/backgrounds/bg-moon-HR-min.png'); */
     /* background-image: url('../img/backgrounds/bg-carrack-deck-HR-min.png'); */

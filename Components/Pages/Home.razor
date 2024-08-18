@@ -1,8 +1,8 @@
 ﻿@page "/"
+@rendermode InteractiveServer
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Starchives</PageTitle>
-
-<!--TODO: header-->
 
 <div class="container px-0 py-4">
 
@@ -170,6 +170,17 @@
 
 </div>
 
-<script src="js/homeScript.js"></script>
+					
 
-<!--TODO: footer-->
+@code
+{
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		await JSRuntime.InvokeVoidAsync("console.log", "OnAfterRenderAsync was called for Home.razor");
+
+		if (firstRender)
+		{
+			await JSRuntime.InvokeVoidAsync("initializeHomePage");
+		}
+	}
+}
