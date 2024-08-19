@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using System.Diagnostics
 @rendermode InteractiveServer
 @inject IJSRuntime JSRuntime
 
@@ -6,14 +7,14 @@
 
 <div class="container px-0 py-4">
 
-	<!-- Jumbotron card containing search bar -->
+	@* Jumbotron card containing search bar *@
 	<div class="p-4 mb-4 text-white bg-dark rounded-3 searchContainer">
 		<div class="p-4 container-fluid" id="search">
 			<form id="searchWindow">
 				<h2 class="display-6 fw heading-lg">Enter Query</h2>
 				<p class="small">Simply enter a word or phrase in the search bar below to find every occurrence among all uploads on the Star Citizen Youtube channel.</p>
 
-				<!-- Search bar and filters switch -->
+				@* Search bar and filters switch *@
 				<div class="row justify-content-center align-items-center">
 					<div class="col-6 my-4">
 						<input id="searchBar" type="text" class="form-control text-center" name="query" placeholder="Search...">
@@ -27,7 +28,7 @@
 					</div>
 				</div>
 
-				<!-- Filter labels -->
+				@* Filter labels *@
 				<div class="filters row justify-content-center align-items-center">
 					<div class="col-2">
 						<span>Published:</span>
@@ -42,7 +43,7 @@
 					</div>
 				</div>
 
-				<!-- Filters -->
+				@* Filters *@
 				<div class="filters row justify-content-center align-items-center">
 					<div class="col-2">
 						<select id="publishDate" class="form-select text-center" aria-label="Default select example">
@@ -81,7 +82,7 @@
 					</div>
 				</div>
 
-				<!-- Toggle order by descending results -->
+				@* Toggle order by descending results *@
 				<div class="filters row justify-content-center align-items-center">
 					<div class="col-2 mt-4 form-check">
 						<input id="order" class="form-check-input mx-0" type="checkbox" value="DESC">
@@ -89,14 +90,15 @@
 					</div>
 				</div>
 
-				<!-- Search button -->
-				<button id="searchButton" class="btn btn-light btn-lg mt-4" type="submit">
+				@* Search Button *@
+				@* TODO: use Blazor data binding instead of JS to call search function *@
+				<button id="searchButton" class="btn btn-light btn-lg mt-4" type="submit" @onclick="Search">
 					<span id="loadingIcon" class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>
 					<span id="searchButtonLabel">Search Starchives</span>
 				</button>
 			</form>
 
-			<!-- Search results get displayed inside this div -->
+			@* Search results get displayed inside this div *@
 			<div id="resultsContainer" class="mx-auto justify-content-center">
 				<p id="resultHeader" class="mb-0 pt-4 text-center"></p>
 				<div id="results" class="pt-4 d-flex flex-column justify-content-center"></div>
@@ -105,7 +107,7 @@
 		</div>
 	</div>
 
-	<!-- Cards containing purpose statement and search stats -->
+	<!-- Cards for caveats and tips -->
 	<div class="row align-items-md-stretch">
 
 		<!-- Caveats card -->
@@ -174,6 +176,19 @@
 
 @code
 {
+	/// <summary>
+	/// TODO: Executes a call to the database to retrieve videos and captions matching the filters specified by the user.
+	/// </summary>
+	/// <returns></returns>
+	async Task Search()
+	{
+		await Task.Delay(100);
+		Debug.Print("Search Button was clicked");
+	}
+
+
+
+	// handle execution of the page's old script using the JS runtime
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
 		await JSRuntime.InvokeVoidAsync("console.log", "OnAfterRenderAsync was called for Home.razor");

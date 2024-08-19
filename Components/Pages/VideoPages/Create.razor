@@ -1,0 +1,86 @@
+﻿@page "/videos/create"
+
+@using Microsoft.EntityFrameworkCore
+@using Starchives.Models
+@inject IDbContextFactory<Starchives.Data.StarchivesContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Create</PageTitle>
+
+<h1>Create</h1>
+
+<h4>Video</h4>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <EditForm method="post" Model="Video" OnValidSubmit="AddVideo" FormName="create" Enhance>
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+            <div class="mb-3">
+                <label for="publishedat" class="form-label">PublishedAt:</label> 
+                <InputDate id="publishedat" @bind-Value="Video.PublishedAt" class="form-control" /> 
+                <ValidationMessage For="() => Video.PublishedAt" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="channelid" class="form-label">ChannelId:</label> 
+                <InputText id="channelid" @bind-Value="Video.ChannelId" class="form-control" /> 
+                <ValidationMessage For="() => Video.ChannelId" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="title" class="form-label">Title:</label> 
+                <InputText id="title" @bind-Value="Video.Title" class="form-control" /> 
+                <ValidationMessage For="() => Video.Title" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="description" class="form-label">Description:</label> 
+                <InputText id="description" @bind-Value="Video.Description" class="form-control" /> 
+                <ValidationMessage For="() => Video.Description" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="duration" class="form-label">Duration:</label> 
+                <InputText id="duration" @bind-Value="Video.Duration" class="form-control" /> 
+                <ValidationMessage For="() => Video.Duration" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="viewcount" class="form-label">ViewCount:</label> 
+                <InputNumber id="viewcount" @bind-Value="Video.ViewCount" class="form-control" /> 
+                <ValidationMessage For="() => Video.ViewCount" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="likecount" class="form-label">LikeCount:</label> 
+                <InputNumber id="likecount" @bind-Value="Video.LikeCount" class="form-control" /> 
+                <ValidationMessage For="() => Video.LikeCount" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="commentcount" class="form-label">CommentCount:</label> 
+                <InputNumber id="commentcount" @bind-Value="Video.CommentCount" class="form-control" /> 
+                <ValidationMessage For="() => Video.CommentCount" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="embedhtml" class="form-label">EmbedHtml:</label> 
+                <InputText id="embedhtml" @bind-Value="Video.EmbedHtml" class="form-control" /> 
+                <ValidationMessage For="() => Video.EmbedHtml" class="text-danger" /> 
+            </div>        
+            <button type="submit" class="btn btn-primary">Create</button>
+        </EditForm>
+    </div>
+</div>
+
+<div>
+    <a href="/videos">Back to List</a>
+</div>
+
+@code {
+
+    [SupplyParameterFromForm]
+    public Video Video { get; set; } = new();
+
+    // To protect from overposting attacks, see https://aka.ms/RazorPagesCRUD
+    public async Task AddVideo()
+    {
+        using var context = DbFactory.CreateDbContext();
+        context.Video.Add(Video);
+        await context.SaveChangesAsync();
+        NavigationManager.NavigateTo("/videos");
+    }
+}

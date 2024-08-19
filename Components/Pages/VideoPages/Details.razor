@@ -1,0 +1,63 @@
+﻿@page "/videos/details"
+
+@using Microsoft.EntityFrameworkCore
+@using Starchives.Models
+@inject IDbContextFactory<Starchives.Data.StarchivesContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Details</PageTitle>
+
+<h1>Details</h1>
+
+<div>
+    <h4>Video</h4>
+    <hr />
+    @if (video is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <dl class="row">
+            <dt class="col-sm-2">PublishedAt</dt>
+            <dd class="col-sm-10">@video.PublishedAt</dd>
+            <dt class="col-sm-2">ChannelId</dt>
+            <dd class="col-sm-10">@video.ChannelId</dd>
+            <dt class="col-sm-2">Title</dt>
+            <dd class="col-sm-10">@video.Title</dd>
+            <dt class="col-sm-2">Description</dt>
+            <dd class="col-sm-10">@video.Description</dd>
+            <dt class="col-sm-2">Duration</dt>
+            <dd class="col-sm-10">@video.Duration</dd>
+            <dt class="col-sm-2">ViewCount</dt>
+            <dd class="col-sm-10">@video.ViewCount</dd>
+            <dt class="col-sm-2">LikeCount</dt>
+            <dd class="col-sm-10">@video.LikeCount</dd>
+            <dt class="col-sm-2">CommentCount</dt>
+            <dd class="col-sm-10">@video.CommentCount</dd>
+            <dt class="col-sm-2">EmbedHtml</dt>
+            <dd class="col-sm-10">@video.EmbedHtml</dd>
+        </dl>
+        <div>
+            <a href="@($"/videos/edit?videoid={video.VideoId}")">Edit</a> |
+            <a href="@($"/videos")">Back to List</a>
+        </div>
+    }
+</div>
+
+@code {
+    Video? video;
+
+    [SupplyParameterFromQuery]
+    public string VideoId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+        video = await context.Video.FirstOrDefaultAsync(m => m.VideoId == VideoId);
+
+        if (video is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+    }
+}

@@ -1,0 +1,45 @@
+﻿@page "/videos"
+
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using Starchives.Models
+@using Starchives.Data
+@inject IDbContextFactory<Starchives.Data.StarchivesContext> DbFactory
+@implements IAsyncDisposable
+
+<PageTitle>Index</PageTitle>
+
+<h1>Index</h1>
+
+<p>
+    <a href="videos/create">Create New</a>
+</p>
+
+<QuickGrid Class="table" Items="context.Video">
+    <PropertyColumn Property="video => video.PublishedAt" />
+    <PropertyColumn Property="video => video.ChannelId" />
+    <PropertyColumn Property="video => video.Title" />
+    <PropertyColumn Property="video => video.Description" />
+    <PropertyColumn Property="video => video.Duration" />
+    <PropertyColumn Property="video => video.ViewCount" />
+    <PropertyColumn Property="video => video.LikeCount" />
+    <PropertyColumn Property="video => video.CommentCount" />
+    <PropertyColumn Property="video => video.EmbedHtml" />
+
+    <TemplateColumn Context="video">
+        <a href="@($"videos/edit?videoid={video.VideoId}")">Edit</a> |
+        <a href="@($"videos/details?videoid={video.VideoId}")">Details</a> |
+        <a href="@($"videos/delete?videoid={video.VideoId}")">Delete</a>
+    </TemplateColumn>
+</QuickGrid>
+
+@code {
+    StarchivesContext context = default!;
+
+    protected override void OnInitialized()
+    {
+        context = DbFactory.CreateDbContext();
+    }
+
+    public async ValueTask DisposeAsync() => await context.DisposeAsync();
+}

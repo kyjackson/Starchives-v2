@@ -1,0 +1,89 @@
+﻿@page "/videos/delete"
+
+@using Microsoft.EntityFrameworkCore
+@using Starchives.Models
+@inject IDbContextFactory<Starchives.Data.StarchivesContext> DbFactory
+@inject NavigationManager NavigationManager
+
+
+<PageTitle>Delete</PageTitle>
+
+<h1>Delete</h1>
+
+<h3>Are you sure you want to delete this?</h3>
+<div>
+    <h4>Video</h4>
+    <hr />
+    @if (video is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <dl class="row">
+            <dt class="col-sm-2">PublishedAt</dt>
+            <dd class="col-sm-10">@video.PublishedAt</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">ChannelId</dt>
+            <dd class="col-sm-10">@video.ChannelId</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">Title</dt>
+            <dd class="col-sm-10">@video.Title</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">Description</dt>
+            <dd class="col-sm-10">@video.Description</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">Duration</dt>
+            <dd class="col-sm-10">@video.Duration</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">ViewCount</dt>
+            <dd class="col-sm-10">@video.ViewCount</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">LikeCount</dt>
+            <dd class="col-sm-10">@video.LikeCount</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">CommentCount</dt>
+            <dd class="col-sm-10">@video.CommentCount</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">EmbedHtml</dt>
+            <dd class="col-sm-10">@video.EmbedHtml</dd>
+        </dl>
+        <EditForm method="post" Model="video" OnValidSubmit="DeleteVideo" FormName="delete" Enhance>
+            <button type="submit" class="btn btn-danger" disabled="@(video is null)">Delete</button> |
+            <a href="/videos">Back to List</a>
+        </EditForm>
+    }
+</div>
+
+@code {
+    Video? video;
+
+    [SupplyParameterFromQuery]
+    public string VideoId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+        video = await context.Video.FirstOrDefaultAsync(m => m.VideoId == VideoId);
+
+        if (video is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+    }
+
+    public async Task DeleteVideo()
+    {
+        using var context = DbFactory.CreateDbContext();
+        context.Video.Remove(video!);
+        await context.SaveChangesAsync();
+        NavigationManager.NavigateTo("/videos");
+    }
+}
