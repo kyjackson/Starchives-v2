@@ -12,7 +12,7 @@
 
 <h3>Are you sure you want to delete this?</h3>
 <div>
-    <h4>Video</h4>
+    <h4>Videos</h4>
     <hr />
     @if (video is null)
     {
@@ -71,7 +71,7 @@
     protected override async Task OnInitializedAsync()
     {
         using var context = DbFactory.CreateDbContext();
-        video = await context.Video.FirstOrDefaultAsync(m => m.VideoId == VideoId);
+        video = await context.Videos.FirstOrDefaultAsync(m => m.VideoId == VideoId);
 
         if (video is null)
         {
@@ -82,7 +82,7 @@
     public async Task DeleteVideo()
     {
         using var context = DbFactory.CreateDbContext();
-        context.Video.Remove(video!);
+        context.Videos.Remove(video!);
         await context.SaveChangesAsync();
         NavigationManager.NavigateTo("/videos");
     }

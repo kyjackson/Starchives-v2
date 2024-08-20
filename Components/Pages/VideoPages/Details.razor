@@ -10,7 +10,7 @@
 <h1>Details</h1>
 
 <div>
-    <h4>Video</h4>
+    <h4>Videos</h4>
     <hr />
     @if (video is null)
     {
@@ -53,7 +53,7 @@
     protected override async Task OnInitializedAsync()
     {
         using var context = DbFactory.CreateDbContext();
-        video = await context.Video.FirstOrDefaultAsync(m => m.VideoId == VideoId);
+        video = await context.Videos.FirstOrDefaultAsync(m => m.VideoId == VideoId);
 
         if (video is null)
         {

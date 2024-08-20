@@ -9,7 +9,7 @@
 
 <h1>Edit</h1>
 
-<h4>Video</h4>
+<h4>Videos</h4>
 <hr />
 @if (Video is null)
 {
@@ -22,7 +22,7 @@ else
             <EditForm method="post" Model="Video" OnValidSubmit="UpdateVideo" FormName="edit" Enhance>
                 <DataAnnotationsValidator />
                 <ValidationSummary />
-                <input type="hidden" name="Video.VideoId" value="@Video.VideoId" />
+                <input type="hidden" name="Videos.VideosId" value="@Video.VideoId" />
                 <div class="mb-3">
                     <label for="publishedat" class="form-label">PublishedAt:</label>
                     <InputDate id="publishedat" @bind-Value="Video.PublishedAt" class="form-control" />
@@ -88,7 +88,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         using var context = DbFactory.CreateDbContext();
-        Video ??= await context.Video.FirstOrDefaultAsync(m => m.VideoId == VideoId);
+        Video ??= await context.Videos.FirstOrDefaultAsync(m => m.VideoId == VideoId);
 
         if (Video is null)
         {
@@ -125,6 +125,6 @@ else
     bool VideoExists(string videoid)
     {
         using var context = DbFactory.CreateDbContext();
-        return context.Video.Any(e => e.VideoId == videoid);
+        return context.Videos.Any(e => e.VideoId == videoid);
     }
 }

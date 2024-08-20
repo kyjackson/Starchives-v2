@@ -1,0 +1,44 @@
+﻿@page "/admin"
+@layout MainLayout
+
+@using Google.Apis.Services
+@using Google.Apis.YouTube.v3
+@using Starchives.Components.Layout
+@using Starchives.Models
+@inject Data.StarchivesContext DbContext
+
+<h1>Admin Page</h1>
+<h3>YouTube Data</h3>
+<p>Data has been retrieved and inserted into the database.</p>
+
+@code {
+	protected async Task UpdateDb()
+	{
+		var youtubeService = new YouTubeService(new BaseClientService.Initializer()
+		{
+			ApiKey = "", // Replace with your YouTube Data API key
+			ApplicationName = this.GetType().ToString()
+		});
+
+		var searchRequest = youtubeService.Search.List("snippet");
+		searchRequest.Q = "Your search query"; // Replace with your search query
+		searchRequest.MaxResults = 10;
+
+		var searchResponse = await searchRequest.ExecuteAsync();
+
+		foreach (var searchResult in searchResponse.Items)
+		{
+			// Assuming you have a Videos model and a Videos DbSet in your ApplicationDbContext
+			var video = new Video
+			{
+				Title = searchResult.Snippet.Title,
+				Description = searchResult.Snippet.Description,
+				VideoId = searchResult.Id.VideoId
+			};
+
+			DbContext.Videos.Add(video);
+		}
+
+		await DbContext.SaveChangesAsync();
+	}
+}

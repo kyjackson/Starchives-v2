@@ -12,7 +12,7 @@ namespace Starchives.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "Video",
+                name: "Videos",
                 columns: table => new
                 {
                     VideoId = table.Column<string>(type: "nvarchar(450)", nullable: false),
@@ -36,7 +36,7 @@ namespace Starchives.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "Video");
+                name: "Videos");
         }
     }
 }

@@ -14,6 +14,6 @@ namespace Starchives.Data
         {
         }
 
-        public DbSet<Starchives.Models.Video> Video { get; set; } = default!;
+        public DbSet<Video> Videos { get; set; } = default!;
     }
 }

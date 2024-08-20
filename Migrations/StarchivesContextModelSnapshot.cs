@@ -22,7 +22,7 @@ namespace Starchives.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("Starchives.Models.Video", b =>
+            modelBuilder.Entity("Starchives.Models.Videos", b =>
                 {
                     b.Property<string>("VideoId")
                         .HasColumnType("nvarchar(450)");
@@ -61,7 +61,7 @@ namespace Starchives.Migrations
 
                     b.HasKey("VideoId");
 
-                    b.ToTable("Video");
+                    b.ToTable("Videos");
                 });
 #pragma warning restore 612, 618
         }

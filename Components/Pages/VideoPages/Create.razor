@@ -9,7 +9,7 @@
 
 <h1>Create</h1>
 
-<h4>Video</h4>
+<h4>Videos</h4>
 <hr />
 <div class="row">
     <div class="col-md-4">
@@ -79,7 +79,7 @@
     public async Task AddVideo()
     {
         using var context = DbFactory.CreateDbContext();
-        context.Video.Add(Video);
+        context.Videos.Add(Video);
         await context.SaveChangesAsync();
         NavigationManager.NavigateTo("/videos");
     }

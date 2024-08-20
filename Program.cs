@@ -49,7 +49,7 @@ public class Program
 	/// Sets up configuration sources for the web app.
 	/// </summary>
 	/// <param name="builder">The web app builder to configure.</param>
-	static void GetConfigurations(WebApplicationBuilder builder)
+	private static void GetConfigurations(WebApplicationBuilder builder)
 	{
 		builder.Configuration.AddEnvironmentVariables("ConnectionStrings_");
 
@@ -68,11 +68,11 @@ public class Program
 	/// Sets up services for the web app.
 	/// </summary>
 	/// <param name="builder">The web app builder for which services will be set up.</param>
-	static void GetServices(WebApplicationBuilder builder)
+	private static void GetServices(WebApplicationBuilder builder)
 	{
 		builder.Services.AddDbContextFactory<StarchivesContext>(options =>
 			options.UseSqlServer(_connectionString ?? throw new InvalidOperationException("Connection string for Starchives database not found.")));
-
+		
 		builder.Services.AddQuickGridEntityFrameworkAdapter();
 
 		builder.Services.AddDatabaseDeveloperPageExceptionFilter();
@@ -90,7 +90,7 @@ public class Program
 	/// Sets up middlewares for the web app.
 	/// </summary>
 	/// <param name="app">The web app for which middlewares will be set up.</param>
-	static void GetMiddlewares(WebApplication app)
+	private static void GetMiddlewares(WebApplication app)
 	{
 		// Configure the HTTP request pipeline.
 		if (!app.Environment.IsDevelopment())
