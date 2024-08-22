@@ -10,21 +10,25 @@
 		<NavMenu/>
 	</div>
 
-	<main>
+	<main id="cover-column-group" class="d-flex align-items-stretch">
+		
+		<div id="cover-column-left" class="p-4"></div>
 
-		@* Cover div containing both header and main content of the body *@
-		<div class="cover-container d-flex justify-content-center w-100 h-100 p-4 flex-column">
+		@* Container for the header, footer, and main content of the body *@
+		<div id="cover-column-center" class="cover-container d-flex flex-column w-100 h-100 p-4">
 
 			<Header />
 
-			<article class="content px-4">
+			<div class="container content px-0 py-4 mb-auto">
 				@Body
-			</article>
+			</div>
 			
 			<Footer />
 
 		</div>
 		
+		<div id="cover-column-right" class="p-4"></div>
+
 		@* Make all external links open in new tabs *@
 		<script>
 			$("main a").attr({

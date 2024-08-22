@@ -1,24 +1,127 @@
 ﻿@page "/admin"
 @layout MainLayout
+@rendermode InteractiveServer
+
+@inject NavigationManager Navigation
+@inject Microsoft.Extensions.Options.IOptions<Keys> Options
+@inject Data.StarchivesContext DbContext
 
 @using Google.Apis.Services
 @using Google.Apis.YouTube.v3
 @using Starchives.Components.Layout
 @using Starchives.Models
-@inject Data.StarchivesContext DbContext
+@using System.Diagnostics
 
-<h1>Admin Page</h1>
-<h3>YouTube Data</h3>
-<p>Data has been retrieved and inserted into the database.</p>
+<h2>Database Administration</h2>
+
+@if (!_isAuthenticated)
+{
+	<div id="login-panel" class="p-4 mb-4 text-white bg-dark rounded-3">
+
+		<h3>Admin Login</h3>
+
+		<EditForm class="d-flex flex-row justify-content-center" FormName="adminLoginForm" Model="_loginModel" OnValidSubmit="HandleLogin">
+			<DataAnnotationsValidator />
+			<ValidationSummary />
+
+			<div class="form-group">
+
+				@if (!string.IsNullOrEmpty(_errorMessage))
+				{
+					<div class="alert alert-danger mx-auto">@_errorMessage</div>
+				}
+
+				<InputText id="password" class="form-control p-1 mb-3 col-3" type="password" @bind-Value="@_loginModel.Password" />
+
+				<button id="login-button" class="btn btn-light btn-sm w-100" type="submit">
+					<h5 id="login-button-label" class="heading-md">Login</h5>
+				</button>
+
+			</div>
+
+
+		</EditForm>
+
+	</div>
+}
+else
+{
+	<div id="logs-panel" class="p-4 mb-4 text-white bg-dark rounded-3">
+		<h3>Console Logs</h3>
+		<p>TODO</p>
+	</div>
+
+	<div class="d-flex flex-row p-0 mb-0 justify-content-between align-items-stretch">
+		<div id="videos-panel" class="p-4 col-3 text-white bg-dark rounded-3">
+			<h3>Videos</h3>
+			<p>TODO</p>
+		</div>
+
+		<div id="captions-panel" class="p-4 col-3 text-white bg-dark rounded-3">
+			<h3>Captions</h3>
+			<p>TODO</p>
+		</div>
+
+		<div id="docs-panel" class="p-4 col-3 text-white bg-dark rounded-3">
+			<h3>Documents</h3>
+			<p>TODO</p>
+		</div>
+	</div>
+}
+
+
+
 
 @code {
+
+	private bool _isAuthenticated = false;
+	private LoginModel _loginModel = new();
+	private string? _errorMessage;
+	public string password = "";
+
+	protected override void OnInitialized()
+	{
+		var adminPassword = Options.Value.AdminPassword;
+
+		if (string.IsNullOrEmpty(adminPassword))
+		{
+			_errorMessage = "Admin password is not set.";
+			return;
+		}
+
+		if (_isAuthenticated)
+		{
+			//await UpdateDb();
+		}
+	}
+
+
+
+	private void HandleLogin()
+	{
+		Debug.Print($"Password Entered: {_loginModel.Password}");
+
+		if (_loginModel.Password == Options.Value.AdminPassword)
+		{
+			_isAuthenticated = true;
+			_errorMessage = string.Empty;
+			//await UpdateDb();
+		}
+		else
+		{
+			_errorMessage = "Invalid password.";
+		}
+	}
+
+
+
 	protected async Task UpdateDb()
 	{
 		var youtubeService = new YouTubeService(new BaseClientService.Initializer()
-		{
-			ApiKey = "", // Replace with your YouTube Data API key
-			ApplicationName = this.GetType().ToString()
-		});
+			{
+				ApiKey = "", // Replace with your YouTube Data API key
+				ApplicationName = this.GetType().ToString()
+			});
 
 		var searchRequest = youtubeService.Search.List("snippet");
 		searchRequest.Q = "Your search query"; // Replace with your search query
@@ -30,15 +133,22 @@
 		{
 			// Assuming you have a Videos model and a Videos DbSet in your ApplicationDbContext
 			var video = new Video
-			{
-				Title = searchResult.Snippet.Title,
-				Description = searchResult.Snippet.Description,
-				VideoId = searchResult.Id.VideoId
-			};
+				{
+					Title = searchResult.Snippet.Title,
+					Description = searchResult.Snippet.Description,
+					VideoId = searchResult.Id.VideoId
+				};
 
 			DbContext.Videos.Add(video);
 		}
 
 		await DbContext.SaveChangesAsync();
+	}
+
+
+
+	public class LoginModel
+	{
+		public string Password { get; set; }
 	}
 }

@@ -51,6 +51,7 @@ public class Program
 	/// <param name="builder">The web app builder to configure.</param>
 	private static void GetConfigurations(WebApplicationBuilder builder)
 	{
+		builder.Configuration.AddUserSecrets<Program>();
 		builder.Configuration.AddEnvironmentVariables("ConnectionStrings_");
 
 		// retrieve the connection string from the environment variables
@@ -70,6 +71,8 @@ public class Program
 	/// <param name="builder">The web app builder for which services will be set up.</param>
 	private static void GetServices(WebApplicationBuilder builder)
 	{
+		builder.Services.Configure<Keys>(builder.Configuration.GetSection("Keys"));
+
 		builder.Services.AddDbContextFactory<StarchivesContext>(options =>
 			options.UseSqlServer(_connectionString ?? throw new InvalidOperationException("Connection string for Starchives database not found.")));
 		
