@@ -55,16 +55,19 @@ else
 		<div id="videos-panel" class="p-4 col-3 text-white bg-dark rounded-3">
 			<h3>Videos</h3>
 			<p>TODO</p>
+			@* button for updating videos *@
 		</div>
 
 		<div id="captions-panel" class="p-4 col-3 text-white bg-dark rounded-3">
 			<h3>Captions</h3>
 			<p>TODO</p>
+			@* button for updating captions *@
 		</div>
 
 		<div id="docs-panel" class="p-4 col-3 text-white bg-dark rounded-3">
 			<h3>Documents</h3>
 			<p>TODO</p>
+			@* button for updating monthly reports and design docs *@
 		</div>
 	</div>
 }
@@ -77,7 +80,8 @@ else
 	private bool _isAuthenticated = false;
 	private LoginModel _loginModel = new();
 	private string? _errorMessage;
-	public string password = "";
+
+
 
 	protected override void OnInitialized()
 	{
@@ -97,6 +101,9 @@ else
 
 
 
+	/// <summary>
+	/// Handles the login form submission for the admin console.
+	/// </summary>
 	private void HandleLogin()
 	{
 		Debug.Print($"Password Entered: {_loginModel.Password}");
@@ -105,7 +112,6 @@ else
 		{
 			_isAuthenticated = true;
 			_errorMessage = string.Empty;
-			//await UpdateDb();
 		}
 		else
 		{
@@ -115,11 +121,15 @@ else
 
 
 
-	protected async Task UpdateDb()
+	/// <summary>
+	/// Retrieves all videos from the Star Citizen YouTube channel, then updates existing videos and inserts new videos into the Starchives database.
+	/// </summary>
+	/// <returns></returns>
+	protected async Task UpdateVideos()
 	{
 		var youtubeService = new YouTubeService(new BaseClientService.Initializer()
 			{
-				ApiKey = "", // Replace with your YouTube Data API key
+				ApiKey = Options.Value.YouTubeApiKey, // Replace with your YouTube Data API key
 				ApplicationName = this.GetType().ToString()
 			});
 
@@ -141,6 +151,33 @@ else
 
 			DbContext.Videos.Add(video);
 		}
+
+		await DbContext.SaveChangesAsync();
+	}
+
+
+
+	/// <summary>
+	/// Retrieves captions for all videos in the Starchives database that have captions available but not yet stored.
+	/// </summary>
+	/// <returns></returns>
+	protected async Task UpdateCaptions()
+	{
+		// TODO: Implement captions update
+
+		await DbContext.SaveChangesAsync();
+	}
+
+
+
+	/// <summary>
+	/// Retrieves all monthly reports and design docs from the RSI website, then updates existing documents and inserts new documents into the Starchives database.
+	/// </summary>
+	/// <returns></returns>
+	protected async Task UpdateDocuments()
+	{
+		// TODO: Implement monthly report update
+		// TODO: Implement design docs update
 
 		await DbContext.SaveChangesAsync();
 	}
