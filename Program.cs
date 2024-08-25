@@ -3,6 +3,9 @@ using Starchives.Components;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Starchives.Data;
+using Starchives.Facades.YouTube;
+
+
 
 namespace Starchives;
 
@@ -28,16 +31,16 @@ public class Program
 		var builder = WebApplication.CreateBuilder(args);
 
 		// 2. get web app configurations from their sources
-		GetConfigurations(builder);
+		ConfigureVariables(builder);
 
 		// 3. add necessary services to the web app builder
-		GetServices(builder);
+		ConfigureServices(builder);
 
 		// 4. complete the build of the web app
 		var app = builder.Build();
 
 		// 5. add middlewares to the web app, when applicable
-		GetMiddlewares(app);
+		ConfigureMiddlewares(app);
 
 		// 6. finally, run the web app
 		app.Run();
@@ -49,7 +52,7 @@ public class Program
 	/// Sets up configuration sources for the web app.
 	/// </summary>
 	/// <param name="builder">The web app builder to configure.</param>
-	private static void GetConfigurations(WebApplicationBuilder builder)
+	private static void ConfigureVariables(WebApplicationBuilder builder)
 	{
 		builder.Configuration.AddUserSecrets<Program>();
 		builder.Configuration.AddEnvironmentVariables("ConnectionStrings_");
@@ -69,13 +72,15 @@ public class Program
 	/// Sets up services for the web app.
 	/// </summary>
 	/// <param name="builder">The web app builder for which services will be set up.</param>
-	private static void GetServices(WebApplicationBuilder builder)
+	private static void ConfigureServices(WebApplicationBuilder builder)
 	{
 		builder.Services.Configure<Keys>(builder.Configuration.GetSection("Keys"));
+		builder.Services.AddScoped<IYouTubeApiFacade, YouTubeApiFacade>();
 
 		builder.Services.AddDbContextFactory<StarchivesContext>(options =>
-			options.UseSqlServer(_connectionString ?? throw new InvalidOperationException("Connection string for Starchives database not found.")));
-		
+																	options
+																		.UseSqlServer(_connectionString ?? throw new InvalidOperationException("Connection string for Starchives database not found.")));
+																		//.EnableSensitiveDataLogging());
 		builder.Services.AddQuickGridEntityFrameworkAdapter();
 
 		builder.Services.AddDatabaseDeveloperPageExceptionFilter();
@@ -93,7 +98,7 @@ public class Program
 	/// Sets up middlewares for the web app.
 	/// </summary>
 	/// <param name="app">The web app for which middlewares will be set up.</param>
-	private static void GetMiddlewares(WebApplication app)
+	private static void ConfigureMiddlewares(WebApplication app)
 	{
 		// Configure the HTTP request pipeline.
 		if (!app.Environment.IsDevelopment())
@@ -108,8 +113,9 @@ public class Program
 		app.UseHttpsRedirection();
 		app.UseStaticFiles();
 		app.UseAntiforgery();
+
 		app.MapRazorComponents<App>()
-			.AddInteractiveServerRenderMode();
+		   .AddInteractiveServerRenderMode();
 
 		Debug.Print("Middlewares loaded");
 	}

@@ -24,4 +24,9 @@ public class Keys
 	/// Used for accessing the Star Citizen YouTube channel video library.
 	/// </summary>
 	public string RsiChannelId { get; set; }
+
+	/// <summary>
+	/// Used for accessing the Star Citizen YouTube channel playlist that contains all uploaded videos.
+	/// </summary>
+	public string RsiUploads { get; set; }
 }

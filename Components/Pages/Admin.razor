@@ -2,15 +2,21 @@
 @layout MainLayout
 @rendermode InteractiveServer
 
-@inject NavigationManager Navigation
-@inject Microsoft.Extensions.Options.IOptions<Keys> Options
-@inject Data.StarchivesContext DbContext
-
 @using Google.Apis.Services
 @using Google.Apis.YouTube.v3
 @using Starchives.Components.Layout
+@using Starchives.Facades.YouTube
 @using Starchives.Models
 @using System.Diagnostics
+@using System.Runtime.CompilerServices
+@using EFCore.BulkExtensions
+@using Google.Apis.Util
+@using Microsoft.EntityFrameworkCore
+
+@inject NavigationManager                           Navigation
+@inject Microsoft.Extensions.Options.IOptions<Keys> Options
+@inject Data.StarchivesContext                      DbContext
+@inject IYouTubeApiFacade                           YouTubeApiFacade
 
 <h2>Database Administration</h2>
 
@@ -21,8 +27,9 @@
 		<h3>Admin Login</h3>
 
 		<EditForm class="d-flex flex-row justify-content-center" FormName="adminLoginForm" Model="_loginModel" OnValidSubmit="HandleLogin">
-			<DataAnnotationsValidator />
-			<ValidationSummary />
+
+			<DataAnnotationsValidator/>
+			<ValidationSummary/>
 
 			<div class="form-group">
 
@@ -31,14 +38,13 @@
 					<div class="alert alert-danger mx-auto">@_errorMessage</div>
 				}
 
-				<InputText id="password" class="form-control p-1 mb-3 col-3" type="password" @bind-Value="@_loginModel.Password" />
+				<InputText id="password" class="form-control p-1 mb-3 col-3" type="password" @bind-Value="@_loginModel.Password"/>
 
 				<button id="login-button" class="btn btn-light btn-sm w-100" type="submit">
 					<h5 id="login-button-label" class="heading-md">Login</h5>
 				</button>
 
 			</div>
-
 
 		</EditForm>
 
@@ -56,18 +62,27 @@ else
 			<h3>Videos</h3>
 			<p>TODO</p>
 			@* button for updating videos *@
+			<button id="login-button" class="btn btn-light btn-sm w-100" @onclick="UpdateVideos">
+				<h5 id="login-button-label" class="heading-md">Update</h5>
+			</button>
 		</div>
 
 		<div id="captions-panel" class="p-4 col-3 text-white bg-dark rounded-3">
 			<h3>Captions</h3>
 			<p>TODO</p>
 			@* button for updating captions *@
+			<button id="login-button" class="btn btn-light btn-sm w-100" @onclick="UpdateCaptions">
+				<h5 id="login-button-label" class="heading-md">Update</h5>
+			</button>
 		</div>
 
 		<div id="docs-panel" class="p-4 col-3 text-white bg-dark rounded-3">
 			<h3>Documents</h3>
 			<p>TODO</p>
 			@* button for updating monthly reports and design docs *@
+			<button id="login-button" class="btn btn-light btn-sm w-100" @onclick="UpdateDocuments">
+				<h5 id="login-button-label" class="heading-md">Update</h5>
+			</button>
 		</div>
 	</div>
 }
@@ -77,9 +92,9 @@ else
 
 @code {
 
-	private bool _isAuthenticated = false;
-	private LoginModel _loginModel = new();
-	private string? _errorMessage;
+	private bool       _isAuthenticated = false;
+	private LoginModel _loginModel      = new();
+	private string?    _errorMessage;
 
 
 
@@ -111,7 +126,7 @@ else
 		if (_loginModel.Password == Options.Value.AdminPassword)
 		{
 			_isAuthenticated = true;
-			_errorMessage = string.Empty;
+			_errorMessage    = string.Empty;
 		}
 		else
 		{
@@ -125,34 +140,53 @@ else
 	/// Retrieves all videos from the Star Citizen YouTube channel, then updates existing videos and inserts new videos into the Starchives database.
 	/// </summary>
 	/// <returns></returns>
-	protected async Task UpdateVideos()
+	private async Task UpdateVideos()
 	{
-		var youtubeService = new YouTubeService(new BaseClientService.Initializer()
-			{
-				ApiKey = Options.Value.YouTubeApiKey, // Replace with your YouTube Data API key
-				ApplicationName = this.GetType().ToString()
-			});
+		var startTime = DateTime.Now;
 
-		var searchRequest = youtubeService.Search.List("snippet");
-		searchRequest.Q = "Your search query"; // Replace with your search query
-		searchRequest.MaxResults = 10;
+		// 1. authenticate to the YouTube API
+		var youtubeService = YouTubeApiFacade.GetYouTubeService();
 
-		var searchResponse = await searchRequest.ExecuteAsync();
+		// 2. get the RSI channel
+		var rsiChannel = await YouTubeApiFacade.GetRsiChannel(youtubeService)!;
 
-		foreach (var searchResult in searchResponse.Items)
+		// 3. get all RSI channel upload IDs
+		var rsiUploadIds = await YouTubeApiFacade.GetRsiUploadIds(youtubeService, rsiChannel);
+
+		// 4. get details of each video
+		var rsiUploads = await YouTubeApiFacade.GetUploadDataByIds(youtubeService, rsiUploadIds);
+
+		// 5. update existing videos and insert new videos
+		var videosToUpsert = new List<Video>();
+		foreach (var video in rsiUploads)
 		{
-			// Assuming you have a Videos model and a Videos DbSet in your ApplicationDbContext
-			var video = new Video
-				{
-					Title = searchResult.Snippet.Title,
-					Description = searchResult.Snippet.Description,
-					VideoId = searchResult.Id.VideoId
-				};
+			var dbVideo = new Video();
 
-			DbContext.Videos.Add(video);
+			dbVideo.VideoId      = video.Id;
+			dbVideo.PublishedAt  = (DateTime)video.Snippet.PublishedAtDateTimeOffset?.DateTime!;
+			dbVideo.ChannelId    = Options.Value.RsiChannelId;
+			dbVideo.Title        = video.Snippet.Title;
+			dbVideo.Description  = video.Snippet.Description ?? "N/A";
+			dbVideo.Duration     = video.ContentDetails.Duration;
+			dbVideo.ViewCount    = (long?)video.Statistics.ViewCount    ?? 0;
+			dbVideo.LikeCount    = (long?)video.Statistics.LikeCount    ?? 0;
+			dbVideo.CommentCount = (long?)video.Statistics.CommentCount ?? 0;
+			dbVideo.EmbedHtml    = video.Player.EmbedHtml               ?? "";
+
+			videosToUpsert.Add(dbVideo);
 		}
 
-		await DbContext.SaveChangesAsync();
+		var bulkConfig = new BulkConfig
+		{
+			PreserveInsertOrder = false,
+			UpdateByProperties  = [nameof(Video.VideoId)],
+		};
+
+		await DbContext.BulkInsertOrUpdateAsync(videosToUpsert, bulkConfig);
+
+		var endTime     = DateTime.Now;
+		var elapsedTime = endTime - startTime;
+		Debug.Print($"Videos updated (time elapsed: {elapsedTime:g})");
 	}
 
 
@@ -161,10 +195,10 @@ else
 	/// Retrieves captions for all videos in the Starchives database that have captions available but not yet stored.
 	/// </summary>
 	/// <returns></returns>
-	protected async Task UpdateCaptions()
+	private async Task UpdateCaptions()
 	{
 		// TODO: Implement captions update
-
+		Debug.Print($"Captions updated");
 		await DbContext.SaveChangesAsync();
 	}
 
@@ -174,12 +208,23 @@ else
 	/// Retrieves all monthly reports and design docs from the RSI website, then updates existing documents and inserts new documents into the Starchives database.
 	/// </summary>
 	/// <returns></returns>
-	protected async Task UpdateDocuments()
+	private async Task UpdateDocuments()
 	{
 		// TODO: Implement monthly report update
 		// TODO: Implement design docs update
-
+		Debug.Print($"Documents updated");
 		await DbContext.SaveChangesAsync();
+	}
+
+
+
+	public static List<List<string>> SplitList(List<string> source, int chunkSize)
+	{
+		return source
+			.Select((value, index) => new { value, index })
+			.GroupBy(x => x.index / chunkSize)
+			.Select(g => g.Select(x => x.value).ToList())
+			.ToList();
 	}
 
 
