@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Starchives.Data;
 
@@ -11,9 +12,11 @@ using Starchives.Data;
 namespace Starchives.Migrations
 {
     [DbContext(typeof(StarchivesContext))]
-    partial class StarchivesContextModelSnapshot : ModelSnapshot
+    [Migration("20240825081742_AddCaptionsTable")]
+    partial class AddCaptionsTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -42,11 +45,9 @@ namespace Starchives.Migrations
 
                     b.Property<string>("VideoId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("CaptionId");
-
-                    b.HasIndex("VideoId");
 
                     b.ToTable("Captions");
                 });
@@ -94,22 +95,6 @@ namespace Starchives.Migrations
                     b.HasKey("VideoId");
 
                     b.ToTable("Videos");
-                });
-
-            modelBuilder.Entity("Starchives.Models.Caption", b =>
-                {
-                    b.HasOne("Starchives.Models.Video", "Video")
-                        .WithMany("Captions")
-                        .HasForeignKey("VideoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Video");
-                });
-
-            modelBuilder.Entity("Starchives.Models.Video", b =>
-                {
-                    b.Navigation("Captions");
                 });
 #pragma warning restore 612, 618
         }

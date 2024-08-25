@@ -63,4 +63,13 @@ public class Video
 	/// </summary>
 	public string EmbedHtml { get; set; }
 
+	/// <summary>
+	/// Indicates whether captions are available for the video.
+	/// </summary>
+	public bool CaptionsAvailable { get; set; }
+
+	/// <summary>
+	/// The captions for the video.
+	/// </summary>
+	public ICollection<Caption> Captions { get; } = new List<Caption>();
 }

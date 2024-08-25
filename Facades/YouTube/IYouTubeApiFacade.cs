@@ -1,5 +1,6 @@
 ﻿using Google.Apis.YouTube.v3;
 using Google.Apis.YouTube.v3.Data;
+using YoutubeExplode.Videos.ClosedCaptions;
 
 
 
@@ -43,4 +44,13 @@ public interface IYouTubeApiFacade
 	/// <param name="videoPages">The list of strings containing up to 50 semicolon-delimited video IDs each.</param>
 	/// <returns>A list of videos in the YouTube API format, with detailed data for each video in the list.</returns>
 	Task<List<Video>> GetUploadDataByIds(YouTubeService youTubeService, List<string> videoPages);
+
+
+
+	/// <summary>
+	/// Gets the caption track for a specific video.
+	/// </summary>
+	/// <param name="videoId">The ID of the video to get the caption track for.</param>
+	/// <returns>The full caption track for the specified video.</returns>
+	Task<ClosedCaptionTrack?> GetCaptionTrackByVideoId(string videoId);
 }

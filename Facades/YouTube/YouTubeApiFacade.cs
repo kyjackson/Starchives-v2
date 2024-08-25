@@ -4,6 +4,10 @@ using Google.Apis.YouTube.v3;
 using Google.Apis.YouTube.v3.Data;
 using Microsoft.Extensions.Options;
 using Starchives;
+using YoutubeExplode;
+using YoutubeExplode.Videos.ClosedCaptions;
+
+
 
 namespace Starchives.Facades.YouTube
 {
@@ -108,6 +112,26 @@ namespace Starchives.Facades.YouTube
 			Debug.Print($"Retrieved data for {videoList.Count} videos from RSI channel (time elapsed: {elapsedTime:g})");
 
 			return videoList;
+		}
+
+
+
+		public async Task<ClosedCaptionTrack?> GetCaptionTrackByVideoId(string videoId)
+		{
+			var youTubeService = new YoutubeClient();
+			var videoUrl       = $"https://www.youtube.com/watch?v={videoId}";
+			var trackManifest  = await youTubeService.Videos.ClosedCaptions.GetManifestAsync(videoUrl);
+			var trackInfo      = trackManifest.TryGetByLanguage("en");
+
+			if (trackInfo == null)
+			{
+				return null;
+			}
+
+			// get the full caption track for the video if it exists
+			var track = await youTubeService.Videos.ClosedCaptions.GetAsync(trackInfo);
+
+			return track;
 		}
 		#endregion
 	}

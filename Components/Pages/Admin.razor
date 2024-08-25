@@ -60,29 +60,32 @@ else
 	<div class="d-flex flex-row p-0 mb-0 justify-content-between align-items-stretch">
 		<div id="videos-panel" class="p-4 col-3 text-white bg-dark rounded-3">
 			<h3>Videos</h3>
-			<p>TODO</p>
 			@* button for updating videos *@
 			<button id="login-button" class="btn btn-light btn-sm w-100" @onclick="UpdateVideos">
 				<h5 id="login-button-label" class="heading-md">Update</h5>
 			</button>
+			<br /><br />
+			<p>Last Update: TODO</p>
 		</div>
 
 		<div id="captions-panel" class="p-4 col-3 text-white bg-dark rounded-3">
 			<h3>Captions</h3>
-			<p>TODO</p>
 			@* button for updating captions *@
 			<button id="login-button" class="btn btn-light btn-sm w-100" @onclick="UpdateCaptions">
 				<h5 id="login-button-label" class="heading-md">Update</h5>
 			</button>
+			<br /><br />
+			<p>Last Update: TODO</p>
 		</div>
 
 		<div id="docs-panel" class="p-4 col-3 text-white bg-dark rounded-3">
 			<h3>Documents</h3>
-			<p>TODO</p>
 			@* button for updating monthly reports and design docs *@
 			<button id="login-button" class="btn btn-light btn-sm w-100" @onclick="UpdateDocuments">
 				<h5 id="login-button-label" class="heading-md">Update</h5>
 			</button>
+			<br /><br />
+			<p>Last Update: TODO</p>
 		</div>
 	</div>
 }
@@ -162,16 +165,17 @@ else
 		{
 			var dbVideo = new Video();
 
-			dbVideo.VideoId      = video.Id;
-			dbVideo.PublishedAt  = (DateTime)video.Snippet.PublishedAtDateTimeOffset?.DateTime!;
-			dbVideo.ChannelId    = Options.Value.RsiChannelId;
-			dbVideo.Title        = video.Snippet.Title;
-			dbVideo.Description  = video.Snippet.Description ?? "N/A";
-			dbVideo.Duration     = video.ContentDetails.Duration;
-			dbVideo.ViewCount    = (long?)video.Statistics.ViewCount    ?? 0;
-			dbVideo.LikeCount    = (long?)video.Statistics.LikeCount    ?? 0;
-			dbVideo.CommentCount = (long?)video.Statistics.CommentCount ?? 0;
-			dbVideo.EmbedHtml    = video.Player.EmbedHtml               ?? "";
+			dbVideo.VideoId           = video.Id;
+			dbVideo.PublishedAt       = (DateTime)video.Snippet.PublishedAtDateTimeOffset?.DateTime!;
+			dbVideo.ChannelId         = Options.Value.RsiChannelId;
+			dbVideo.Title             = video.Snippet.Title;
+			dbVideo.Description       = video.Snippet.Description ?? "N/A";
+			dbVideo.Duration          = video.ContentDetails.Duration;
+			dbVideo.ViewCount         = (long?)video.Statistics.ViewCount    ?? 0;
+			dbVideo.LikeCount         = (long?)video.Statistics.LikeCount    ?? 0;
+			dbVideo.CommentCount      = (long?)video.Statistics.CommentCount ?? 0;
+			dbVideo.EmbedHtml         = video.Player.EmbedHtml               ?? "";
+			dbVideo.CaptionsAvailable = video.ContentDetails.Caption == "true";
 
 			videosToUpsert.Add(dbVideo);
 		}
@@ -197,9 +201,47 @@ else
 	/// <returns></returns>
 	private async Task UpdateCaptions()
 	{
-		// TODO: Implement captions update
-		Debug.Print($"Captions updated");
-		await DbContext.SaveChangesAsync();
+		var startTime = DateTime.Now;
+
+		var videosWithoutCaptions = await DbContext.Videos
+												   .Where(video => !DbContext.Captions.Any(caption => caption.VideoId == video.VideoId))
+												   .OrderBy(video => video.PublishedAt)
+												   .ToListAsync();
+
+		var captionsToInsert = new List<Caption>();
+		foreach (var video in videosWithoutCaptions)
+		{
+
+			var captionTrack = await YouTubeApiFacade.GetCaptionTrackByVideoId(video.VideoId);
+
+			if (captionTrack == null)
+			{
+				continue;
+			}
+
+			// TODO: override video.CaptionsAvailable with 'true' regardless of its current value because a caption track has been discovered at this point
+
+			foreach (var caption in captionTrack.Captions)
+			{
+				if (caption.Text != "\n")
+				{
+					var dbCaption = new Caption();
+
+					dbCaption.VideoId  = video.VideoId;
+					dbCaption.Duration = caption.Duration;
+					dbCaption.Offset   = caption.Offset;
+					dbCaption.Text     = caption.Text;
+
+					captionsToInsert.Add(dbCaption);
+				}
+			}
+		}
+
+		await DbContext.BulkInsertAsync(captionsToInsert);
+
+		var endTime = DateTime.Now;
+		var elapsedTime = endTime - startTime;
+		Debug.Print($"Captions updated (time elapsed: {elapsedTime:g})");
 	}
 
 

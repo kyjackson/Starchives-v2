@@ -15,5 +15,16 @@ namespace Starchives.Data
         }
 
         public DbSet<Video> Videos { get; set; } = default!;
-    }
+
+		public DbSet<Caption> Captions { get; set; } = default!;
+
+		#region Required
+		protected override void OnModelCreating(ModelBuilder modelBuilder)
+		{
+			modelBuilder.Entity<Caption>()
+						.Property(b => b.VideoId)
+						.IsRequired();
+		}
+		#endregion
+	}
 }
