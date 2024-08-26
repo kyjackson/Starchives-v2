@@ -1,7 +1,15 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using System.Diagnostics
+
+@inject SharedService SharedService
+
+@rendermode InteractiveServer
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-		@* <a class="navbar-brand" href="">Starchives</a> *@
-		@* TODO: make nav bar collapsable via hamburger icon here *@
+		@* this turns into a collapsable hamburger menu on phone screen sizes *@
+		<a class="float-md-start mb-0 text-light text-decoration-none" href="/">
+			<span class="fs-4 brand">Starchives</span>
+		</a>
     </div>
 </div>
 
@@ -48,7 +56,17 @@
 				<span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
 			</NavLink>
 		</div>
+		
+		@* this should be disabled in production *@
+		<div class="nav-item px-3">
+			<NavLink class="nav-link" href="admin">
+				<span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Admin
+			</NavLink>
+		</div>
 	</nav>
 
 </div>
 
+@code {
+
+}

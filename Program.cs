@@ -86,8 +86,10 @@ public class Program
 		builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 		// Add services to the container.
+		builder.Services.AddSingleton<SharedService>();
+
 		builder.Services.AddRazorComponents()
-			.AddInteractiveServerComponents();
+			   .AddInteractiveServerComponents();
 
 		Debug.Print("Services loaded");
 	}

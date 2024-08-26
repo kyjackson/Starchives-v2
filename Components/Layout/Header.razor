@@ -1,4 +1,6 @@
-﻿@* 
+﻿@rendermode InteractiveServer
+
+@* 
 	This component defines the site header, containing the brand and announcement feed.
 *@
 
@@ -7,13 +9,18 @@
 
 		@* Brand/logo *@
 		<a class="float-md-start mb-0 text-light text-decoration-none" href="/">
-			<span class="fs-4 brand">Starchives</span>
+			<span class="fs-4 brand">@Title</span>
 		</a>
 
 		@* TODO: Announcement feed *@
-		@* <nav class="nav nav-masthead d-flex align-items-center justify-content-center float-md-end">
-
-		</nav> *@
+		@* <nav class="nav nav-masthead d-flex align-items-center justify-content-center float-md-end"></nav> *@
 
 	</div>
 </header>
+
+@code {
+
+	[Parameter]
+	public string Title { get; set; } = "Default Title";
+
+}

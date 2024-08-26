@@ -1,5 +1,9 @@
-﻿@inherits LayoutComponentBase
-@inject IJSRuntime JSRuntime
+﻿@using System.Diagnostics
+@inherits LayoutComponentBase
+
+@inject IJSRuntime        JSRuntime
+@inject SharedService     SharedService
+@inject NavigationManager NavigationManager
 
 @*
     This component sets up the nav menu, header, and footer for use by each page.
@@ -7,6 +11,7 @@
 
 <div class="page">
 	<div class="sidebar">
+		@* OnUpdateHeader="(value) => { UpdateHeader(value); }" *@
 		<NavMenu/>
 	</div>
 
@@ -17,7 +22,7 @@
 		@* Container for the header, footer, and main content of the body *@
 		<div id="cover-column-center" class="cover-container d-flex flex-column w-100 h-100 p-4">
 
-			<Header />
+			<Header Title="@_pageTitle" />
 
 			<div class="container content px-0 py-4 mb-auto">
 				@Body
@@ -46,3 +51,39 @@
 	<a class="dismiss">🗙</a>
 </div>
 
+@code {
+
+	private string _pageTitle = "Home";
+
+	protected override void OnInitialized()
+	{
+		NavigationManager.LocationChanged += HandleLocationChanged;
+		UpdatePageTitle(NavigationManager.Uri);
+	}
+
+	private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+	{
+		UpdatePageTitle(e.Location);
+	}
+
+	private void UpdatePageTitle(string uri)
+	{
+		var relativePath = NavigationManager.ToBaseRelativePath(uri);
+
+		_pageTitle = relativePath switch
+		{
+			""        => "Caption Search",
+			"about"   => "About",
+			"admin"   => "Admin",
+			_         => "Unknown Page"
+		};
+
+		StateHasChanged(); // Ensure the header is updated
+	}
+
+	public void Dispose()
+	{
+		NavigationManager.LocationChanged -= HandleLocationChanged;
+	}
+
+}
