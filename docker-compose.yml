@@ -1,0 +1,6 @@
+services:
+  starchives:
+    image: ${DOCKER_REGISTRY-}starchives
+    build:
+      context: Starchives
+      dockerfile: Dockerfile
