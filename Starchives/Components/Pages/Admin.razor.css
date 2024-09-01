@@ -1,0 +1,12 @@
+﻿#admin-panel {
+	height: 720px;
+}
+
+	#admin-panel h4, #admin-panel h5 {
+		font-family: 'Inconsolata', monospace;
+		text-align: left;
+	}
+
+.divider {
+	border: 1px solid #808080;
+}

@@ -32,12 +32,21 @@ TODO - What are specific minimum requirements to use your packages? Consider exc
 
 ## Additional documentation
 
+### Bootstrap
+The [Bootstrap frontend toolkit](https://getbootstrap.com/docs/5.3/getting-started/introduction/) is used for the site's UI design.
+
 ### YouTube
+The [.NET client library](https://googleapis.dev/dotnet/Google.Apis.YouTube.v3/latest/api/Google.Apis.YouTube.v3.html) for the [YouTube Data API](https://developers.google.com/youtube/v3/getting-started) 
+is used for retrieving the latest data for all videos on the RSI channel.
 
-The [YouTube Data API](https://developers.google.com/youtube/v3/getting-started) is used for retrieving the latest data for all videos on the RSI channel.
-
-The [Youtube Explode](https://github.com/Tyrrrz/YoutubeExplode) library is used for retrieving new caption tracks in a cost-efficient manner.
+The [Youtube Explode library](https://github.com/Tyrrrz/YoutubeExplode) is used for retrieving new caption tracks in a cost-efficient manner.
 
 ### Entity Framework
+The [EFCore.BulkExtensions.SqlServer library](https://www.nuget.org/packages/EFCore.BulkExtensions.SqlServer#readme-body-tab) is used for 
+bulk CRUD operations on data stored in the Starchives database.
 
-The [EFCore.BulkExtensions.SqlServer](https://www.nuget.org/packages/EFCore.BulkExtensions.SqlServer#readme-body-tab) library is used for bulk CRUD operations on data stored in the Starchives database.
+### Serilog
+The [Serilog library](https://github.com/serilog/serilog) is used as the base for logging in this project.
+
+The [Serilog ASP.NET Core package](https://github.com/serilog/serilog-aspnetcore) is used for routing ASP.NET Core-specific
+logs through the Serilog platform.

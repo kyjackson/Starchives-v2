@@ -3,6 +3,7 @@ using Google.Apis.Services;
 using Google.Apis.YouTube.v3;
 using Google.Apis.YouTube.v3.Data;
 using Microsoft.Extensions.Options;
+using Serilog;
 using Starchives;
 using YoutubeExplode;
 using YoutubeExplode.Videos.ClosedCaptions;
@@ -43,7 +44,7 @@ namespace Starchives.Facades.YouTube
 
 			var channelListResponse = await getRsiChannel.ExecuteAsync();
 			var rsiChannel          = channelListResponse.Items[0];
-			Debug.Print($"Retrieved channel ID '{rsiChannel.Id}'");
+			Log.Information($"Retrieved channel ID '{rsiChannel.Id}'");
 
 			return rsiChannel;
 		}
@@ -88,7 +89,7 @@ namespace Starchives.Facades.YouTube
 
 			var endTime = DateTime.Now;
 			var elapsedTime = endTime - startTime;
-			Debug.Print($"Retrieved {videoCount} video IDs from RSI channel (time elapsed: {elapsedTime:g})");
+			Log.Information($"Retrieved {videoCount} video IDs from RSI channel (time elapsed: {elapsedTime:g})");
 
 			return videoPages;
 		}
@@ -113,7 +114,7 @@ namespace Starchives.Facades.YouTube
 
 			var endTime     = DateTime.Now;
 			var elapsedTime = endTime - startTime;
-			Debug.Print($"Retrieved data for {videoList.Count} videos from RSI channel (time elapsed: {elapsedTime:g})");
+			Log.Information($"Retrieved data for {videoList.Count} videos from RSI channel (time elapsed: {elapsedTime:g})");
 
 			return videoList;
 		}

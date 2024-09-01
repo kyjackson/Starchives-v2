@@ -1,5 +1,41 @@
-﻿<h3>TODO</h3>
+﻿<div id="log-console-wrapper" class="overflow-x-auto overflow-y-auto">
+	<div id="log-console" class="overflow-scroll p-2">
+		@foreach (var log in _logEvents)
+		{
+			<div class="log-event p-0 m-0">@log</div>
+		}
+		<div id="anchor"></div>
+	</div>
+</div>
+
+
 
 @code {
+	private IEnumerable<string> _logEvents = Enumerable.Empty<string>();
+	private Timer? _timer;
 
+	protected override void OnInitialized()
+	{
+		// Update logs every second
+		_timer = new Timer(UpdateLogs, null, 0, 1000);
+	}
+
+
+
+	/// <summary>
+	/// Updates the logs by retrieving log events from the InMemoryLogSink.
+	/// </summary>
+	/// <param name="state">The state object passed to the timer callback.</param>
+	private void UpdateLogs(object? state)
+	{
+		_logEvents = InMemoryLogSink.GetLogEvents();
+		InvokeAsync(StateHasChanged);
+	}
+
+
+
+	public void Dispose()
+	{
+		_timer?.Dispose();
+	}
 }

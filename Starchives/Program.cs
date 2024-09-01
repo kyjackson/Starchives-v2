@@ -3,8 +3,12 @@ using Starchives.Components;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Serilog;
 using Starchives.Data;
 using Starchives.Facades.YouTube;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Build.Framework;
+using Serilog.Events;
 
 
 
@@ -28,23 +32,57 @@ public class Program
 	/// <param name="args">Arguments to be interpreted at the entry point of the web app.</param>
 	public static void Main(string[] args)
 	{
-		// 1. create the web application builder
-		var builder = WebApplication.CreateBuilder(args);
+		/*
+		 * If trying to find the source of a noisy log event to silence it, add {SourceContext} to the logTemplate below.
+		 */
+		const string logTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss}] - {Level:u3} - {Message:lj}{NewLine}{Exception}";
 
-		// 2. get web app configurations from their sources
-		ConfigureVariables(builder);
+		Log.Logger = new LoggerConfiguration()
+					 .MinimumLevel.Debug()
+					 .MinimumLevel.Override("Microsoft.AspNetCore.Hosting", LogEventLevel.Warning)
+					 .MinimumLevel.Override("Microsoft.AspNetCore.Mvc", LogEventLevel.Warning)
+					 .MinimumLevel.Override("Microsoft.AspNetCore.Routing", LogEventLevel.Warning)
+					 .MinimumLevel.Override("Microsoft.AspNetCore.Components.RenderTree.Renderer", LogEventLevel.Warning)
+					 .MinimumLevel.Override("Microsoft.AspNetCore.Components.Server.Circuits.RemoteRenderer", LogEventLevel.Warning)
+					 .MinimumLevel.Override("Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher", LogEventLevel.Warning)
+					 .MinimumLevel.Override("Microsoft.AspNetCore.Components.Server.ComponentHub", LogEventLevel.Warning)
+					 .WriteTo.Console(outputTemplate: logTemplate)
+					 .WriteTo.InMemoryLogSink(outputTemplate: logTemplate)
+					 .CreateLogger();
 
-		// 3. add necessary services to the web app builder
-		ConfigureServices(builder);
 
-		// 4. complete the build of the web app
-		var app = builder.Build();
 
-		// 5. add middlewares to the web app, when applicable
-		ConfigureMiddlewares(app);
+		try
+		{
+			Log.Information("Starting up");
 
-		// 6. finally, run the web app
-		app.Run();
+			// 1. create the web application builder
+			var builder = WebApplication.CreateBuilder(args);
+			//builder.Host.UseSerilog();
+
+			// 2. get web app configurations from their sources
+			ConfigureVariables(builder);
+
+			// 3. add necessary services to the web app builder
+			ConfigureServices(builder);
+
+			// 4. complete the build of the web app
+			var app = builder.Build();
+
+			// 5. add middlewares to the web app, when applicable
+			ConfigureMiddlewares(app);
+
+			// 6. finally, run the web app
+			app.Run();
+		}
+		catch (Exception ex)
+		{
+			Log.Fatal(ex, $"Application fatal error: {ex.Message}");
+		}
+		finally
+		{
+			Log.CloseAndFlush();
+		}
 	}
 
 
@@ -61,7 +99,7 @@ public class Program
 		// with Docker Compose, all special env vars are set from .env file
 		_connectionString = Environment.GetEnvironmentVariable("Keys__ConnectionString");
 
-		Debug.Print("Configurations loaded");
+		Log.Information("Configurations loaded");
 	}
 
 
@@ -72,6 +110,8 @@ public class Program
 	/// <param name="builder">The web app builder for which services will be set up.</param>
 	private static void ConfigureServices(WebApplicationBuilder builder)
 	{
+		builder.Services.AddSerilog();
+
 		builder.Services.Configure<Keys>(builder.Configuration.GetSection("Keys"));
 		builder.Services.AddScoped<IYouTubeApiFacade, YouTubeApiFacade>();
 		builder.Services.AddDbContextFactory<StarchivesContext>(options =>
@@ -88,7 +128,7 @@ public class Program
 		builder.Services.AddRazorComponents()
 			   .AddInteractiveServerComponents();
 
-		Debug.Print("Services loaded");
+		Log.Information("Services loaded");
 	}
 
 
@@ -99,6 +139,22 @@ public class Program
 	/// <param name="app">The web app for which middlewares will be set up.</param>
 	private static void ConfigureMiddlewares(WebApplication app)
 	{
+		app.UseSerilogRequestLogging(options =>
+		{
+			// Customize the message template
+			options.MessageTemplate = "Handled {RequestPath}";
+
+			// Emit debug-level events instead of the defaults
+			options.GetLevel = (httpContext, elapsed, ex) => LogEventLevel.Debug;
+
+			// Attach additional properties to the request completion event
+			options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+			{
+				diagnosticContext.Set("RequestHost",   httpContext.Request.Host.Value);
+				diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
+			};
+		});
+
 		// Configure the HTTP request pipeline.
 		if (!app.Environment.IsDevelopment())
 		{
@@ -116,7 +172,7 @@ public class Program
 		app.MapRazorComponents<App>()
 		   .AddInteractiveServerRenderMode();
 
-		Debug.Print("Middlewares loaded");
+		Log.Information("Middlewares loaded");
 	}
 	#endregion
 }
