@@ -21,12 +21,7 @@ public class Keys
 	public string YouTubeApiKey { get; set; }
 
 	/// <summary>
-	/// Used for accessing the Star Citizen YouTube channel video library.
+	/// Used for accessing a YouTube channel's video library.
 	/// </summary>
-	public string RsiChannelId { get; set; }
-
-	/// <summary>
-	/// Used for accessing the Star Citizen YouTube channel playlist that contains all uploaded videos.
-	/// </summary>
-	public string RsiUploads { get; set; }
+	public string ChannelId { get; set; }
 }

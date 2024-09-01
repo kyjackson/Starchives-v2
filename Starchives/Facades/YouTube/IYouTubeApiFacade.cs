@@ -19,26 +19,26 @@ public interface IYouTubeApiFacade
 
 
 	/// <summary>
-	/// Gets the RSI channel from YouTube.
+	/// Gets a channel from YouTube.
 	/// </summary>
 	/// <param name="youTubeService">The YouTube service configuration to use for API calls.</param>
-	/// <returns>A list of YouTube channels matching the specified filters. This should always return only the RSI channel.</returns>
-	Task<Channel>? GetRsiChannel(YouTubeService youTubeService);
+	/// <returns>A list of YouTube channels matching the specified filters.</returns>
+	Task<Channel>? GetChannel(YouTubeService youTubeService);
 
 
 
 	/// <summary>
-	/// Gets video IDs for all uploads from the RSI channel.
+	/// Gets video IDs for all uploads from the specified channel.
 	/// </summary>
 	/// <param name="youTubeService">The YouTube service configuration to use for API calls.</param>
-	/// <param name="rsiChannel">The channel to get all uploads for. This should always be the RSI channel.</param>
-	/// <returns>A list of strings representing all pages of all RSI uploads. Each string contains up to 50 video IDs delimited by semicolon.</returns>
-	Task<List<string>> GetRsiUploadIds(YouTubeService youTubeService, Channel rsiChannel);
+	/// <param name="channel">The channel to get all uploads for.</param>
+	/// <returns>A list of strings representing all pages of all channel uploads. Each string contains up to 50 video IDs delimited by semicolon.</returns>
+	Task<List<string>> GetUploadIds(YouTubeService youTubeService, Channel channel);
 
 
 
 	/// <summary>
-	/// Gets video data for all uploads from the RSI channel.
+	/// Gets video data for all uploads from the specified channel.
 	/// </summary>
 	/// <param name="youTubeService">The YouTube service configuration to use for API calls.</param>
 	/// <param name="videoPages">The list of strings containing up to 50 semicolon-delimited video IDs each.</param>

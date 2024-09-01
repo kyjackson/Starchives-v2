@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Starchives.Components;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Starchives.Data;
 using Starchives.Facades.YouTube;
 
@@ -54,14 +55,11 @@ public class Program
 	/// <param name="builder">The web app builder to configure.</param>
 	private static void ConfigureVariables(WebApplicationBuilder builder)
 	{
-		builder.Configuration.AddUserSecrets<Program>();
-		builder.Configuration.AddEnvironmentVariables("ConnectionStrings_");
+		builder.Configuration.AddEnvironmentVariables();
 
 		// retrieve the connection string from the environment variables
-		//_connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
-		_connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-		Debug.Print(_connectionString);
+		// with Docker Compose, all special env vars are set from .env file
+		_connectionString = Environment.GetEnvironmentVariable("Keys__ConnectionString");
 
 		Debug.Print("Configurations loaded");
 	}
@@ -76,7 +74,6 @@ public class Program
 	{
 		builder.Services.Configure<Keys>(builder.Configuration.GetSection("Keys"));
 		builder.Services.AddScoped<IYouTubeApiFacade, YouTubeApiFacade>();
-
 		builder.Services.AddDbContextFactory<StarchivesContext>(options =>
 																	options
 																		.UseSqlServer(_connectionString ?? throw new InvalidOperationException("Connection string for Starchives database not found.")));

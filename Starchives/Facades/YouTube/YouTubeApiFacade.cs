@@ -34,10 +34,12 @@ namespace Starchives.Facades.YouTube
 
 
 
-		public async Task<Channel>? GetRsiChannel(YouTubeService youTubeService)
+		/// <inheritdoc cref="IYouTubeApiFacade.GetChannel"/>
+		/// <remarks>This should always return only the RSI channel.</remarks>
+		public async Task<Channel>? GetChannel(YouTubeService youTubeService)
 		{
 			var getRsiChannel = youTubeService.Channels.List("contentDetails");
-			getRsiChannel.Id = Options.Value.RsiChannelId;
+			getRsiChannel.Id = Options.Value.ChannelId;
 
 			var channelListResponse = await getRsiChannel.ExecuteAsync();
 			var rsiChannel          = channelListResponse.Items[0];
@@ -48,12 +50,14 @@ namespace Starchives.Facades.YouTube
 
 
 
-		public async Task<List<string>> GetRsiUploadIds(YouTubeService youTubeService, Channel rsiChannel)
+		/// <inheritdoc cref="IYouTubeApiFacade.GetUploadIds"/>
+		/// <remarks><paramref name="channel"/> should always be the RSI channel.</remarks>
+		public async Task<List<string>> GetUploadIds(YouTubeService youTubeService, Channel channel)
 		{
 			var startTime = DateTime.Now;
 
 			// this should be the playlist that contains all uploads to the channel
-			var rsiUploadsPlaylistId       = rsiChannel.ContentDetails.RelatedPlaylists.Uploads;
+			var rsiUploadsPlaylistId       = channel.ContentDetails.RelatedPlaylists.Uploads;
 			var nextPageTokenPlaylistItems = "";
 			var videoPages                 = new List<string>();
 			var videoCount                 = 0;

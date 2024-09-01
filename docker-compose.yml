@@ -4,3 +4,9 @@ services:
     build:
       context: Starchives
       dockerfile: Dockerfile
+    environment:
+      # these values are defined in the .env file, located in the same directory as docker-compose.yml
+      - Keys__ConnectionString=${DbConnectionString}
+      - Keys__YouTubeApiKey=${YouTubeApiKey} 
+      - Keys__ChannelId=${ChannelId}
+      - Keys__AdminPassword=${AdminPassword}
