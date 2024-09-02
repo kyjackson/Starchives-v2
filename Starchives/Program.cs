@@ -6,9 +6,11 @@ using Microsoft.Extensions.Options;
 using Serilog;
 using Starchives.Data;
 using Starchives.Facades.YouTube;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Build.Framework;
 using Serilog.Events;
+using Microsoft.AspNetCore.Components;
 
 
 
@@ -17,7 +19,7 @@ namespace Starchives;
 /// <summary>
 /// The entry class of the web app.
 /// </summary>
-public class Program
+public static class Program
 {
 	#region Fields
 	private static string? _connectionString;
@@ -56,23 +58,24 @@ public class Program
 		{
 			Log.Information("Starting up");
 
-			// 1. create the web application builder
+			/*
+			 *	1. create the web application builder
+			 *	2. get web app configurations from their sources
+			 *	3. add necessary services to the web app builder
+			 */
 			var builder = WebApplication.CreateBuilder(args);
-			//builder.Host.UseSerilog();
+			builder.ConfigureVariables();
+			builder.ConfigureServices();
 
-			// 2. get web app configurations from their sources
-			ConfigureVariables(builder);
-
-			// 3. add necessary services to the web app builder
-			ConfigureServices(builder);
-
-			// 4. complete the build of the web app
+			/*
+			 *	4. complete the build of the web app
+			 *	5. add middlewares to the web app
+			 *	6. configure API endpoints for the web app
+			 *	7. finally, run the web app
+			 */
 			var app = builder.Build();
-
-			// 5. add middlewares to the web app, when applicable
-			ConfigureMiddlewares(app);
-
-			// 6. finally, run the web app
+			app.ConfigureMiddlewares();
+			app.ConfigureApi();
 			app.Run();
 		}
 		catch (Exception ex)
@@ -91,7 +94,7 @@ public class Program
 	/// Sets up configuration sources for the web app.
 	/// </summary>
 	/// <param name="builder">The web app builder to configure.</param>
-	private static void ConfigureVariables(WebApplicationBuilder builder)
+	private static void ConfigureVariables(this WebApplicationBuilder builder)
 	{
 		builder.Configuration.AddEnvironmentVariables();
 
@@ -108,23 +111,38 @@ public class Program
 	/// Sets up services for the web app.
 	/// </summary>
 	/// <param name="builder">The web app builder for which services will be set up.</param>
-	private static void ConfigureServices(WebApplicationBuilder builder)
+	private static void ConfigureServices(this WebApplicationBuilder builder)
 	{
+		// services for enhanced logging
 		builder.Services.AddSerilog();
 
+		// services for credential configuration
 		builder.Services.Configure<Keys>(builder.Configuration.GetSection("Keys"));
-		builder.Services.AddScoped<IYouTubeApiFacade, YouTubeApiFacade>();
+
+		// services for database access
 		builder.Services.AddDbContextFactory<StarchivesContext>(options =>
 																	options
 																		.UseSqlServer(_connectionString ?? throw new InvalidOperationException("Connection string for Starchives database not found.")));
 																		//.EnableSensitiveDataLogging());
+		
+		// services for Entity Framework Core
 		builder.Services.AddQuickGridEntityFrameworkAdapter();
-
 		builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-		// Add services to the container.
+		// services for custom logic
+		builder.Services.AddScoped<IYouTubeApiFacade, YouTubeApiFacade>();
 		builder.Services.AddSingleton<SharedService>();
 
+		// services for the API controller
+		builder.Services.AddScoped<HttpClient>();
+		builder.Services.AddHttpClient("api", client =>
+		{
+			client.BaseAddress = new Uri("http://localhost:8080");
+		});
+		
+		
+
+		// services for server-side component rendering
 		builder.Services.AddRazorComponents()
 			   .AddInteractiveServerComponents();
 
@@ -137,8 +155,9 @@ public class Program
 	/// Sets up middlewares for the web app.
 	/// </summary>
 	/// <param name="app">The web app for which middlewares will be set up.</param>
-	private static void ConfigureMiddlewares(WebApplication app)
+	private static void ConfigureMiddlewares(this WebApplication app)
 	{
+		// middlewares for enhanced logging
 		app.UseSerilogRequestLogging(options =>
 		{
 			// Customize the message template
@@ -155,7 +174,7 @@ public class Program
 			};
 		});
 
-		// Configure the HTTP request pipeline.
+		// middlewares for the HTTP request pipeline
 		if (!app.Environment.IsDevelopment())
 		{
 			app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -163,16 +182,56 @@ public class Program
 			// The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
 			app.UseHsts();
 			app.UseMigrationsEndPoint();
+			app.UseHttpsRedirection();
 		}
 
-		app.UseHttpsRedirection();
 		app.UseStaticFiles();
 		app.UseAntiforgery();
 
+		// middlewares for server-side component rendering
 		app.MapRazorComponents<App>()
 		   .AddInteractiveServerRenderMode();
 
 		Log.Information("Middlewares loaded");
+	}
+
+	
+
+	/// <summary>
+	/// Sets up API endpoints for the web app.
+	/// </summary>
+	/// <param name="app">The web app for which API endpoints will be configured.</param>
+	private static void ConfigureApi(this WebApplication app)
+	{
+		// map API routes
+		app.MapGet("/api", async (StarchivesContext db) =>
+		{
+			var videos = await db.Videos.ToListAsync();
+			Log.Information($"Retrieved {videos.Count} videos");
+			return Results.Ok(videos);
+		});
+
+		app.MapGet("/api/results", async (StarchivesContext db, string query, string date = "1/1/2024", string duration = "10", string orderBy = "Date", string order = "desc", int page = 1) =>
+		{
+			var videos = await db.Videos
+								 .Where(video => db.Captions
+												   .Any(caption => caption.VideoId == video.VideoId && EF.Functions.Like(caption.Text.ToLower(), $"%{query}%")))
+								 .ToListAsync();
+
+			return Results.Ok(videos);
+		});
+
+		app.MapGet("/api/videos", async (StarchivesContext db, HttpRequest request) =>
+		{
+			var query = request.Query["query"];
+
+			var videos = await db.Videos
+								 .Where(video => db.Captions
+												   .Any(caption => caption.VideoId == video.VideoId && EF.Functions.Like(caption.Text.ToLower(), $"%{query}%")))
+								 .ToListAsync();
+
+			return Results.Ok(videos);
+		});
 	}
 	#endregion
 }

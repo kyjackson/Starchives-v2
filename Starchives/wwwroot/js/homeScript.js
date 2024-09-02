@@ -102,8 +102,8 @@ function initializeHomePage() {
 
 		resultsLengthFound = false;
 		totalPages = 0;
-		getResults(dataToSend);
-		getResultsLength(dataToSend);
+		//getResults(dataToSend);
+		//getResultsLength(dataToSend);
 	});
 
 

@@ -1,21 +1,34 @@
 ﻿@page "/"
+
+@using Microsoft.AspNetCore.Components
 @using System.Diagnostics
+@using System.Net.Http
+@using System.Threading.Tasks
+@using Serilog
+@using Starchives.Models
+
 @rendermode InteractiveServer
-@inject IJSRuntime JSRuntime
+
+@inject IJSRuntime         JSRuntime
+@inject NavigationManager  Navigation
+@inject IHttpClientFactory HttpClientFactory
 
 <PageTitle>Starchives</PageTitle>
 
-@* Jumbotron card containing search bar *@
-<div class="p-4 mb-4 text-white bg-dark rounded-3 searchContainer">
-	<div class="p-4 container-fluid" id="search">
-		<form id="searchWindow">
+@****************************************@
+@* Search Panel (Jumbotron)				*@
+@****************************************@
+<div id="caption-search-panel" class="searchContainer p-4 mb-4 text-white bg-dark rounded-3">
+
+	<div id="search" class="p-4 container-fluid">
+		<form id="searchWindow" @onsubmit="Search">
 			<h2 class="display-6 fw heading-lg">Enter Query</h2>
 			<p class="small">Simply enter a word or phrase in the search bar below to find every occurrence among all uploads on the Star Citizen Youtube channel.</p>
 
 			@* Search bar and filters switch *@
 			<div class="row justify-content-center align-items-center">
 				<div class="col-6 my-4">
-					<input id="searchBar" type="text" class="form-control text-center" name="query" placeholder="Search...">
+					<input id="searchBar" type="text" class="form-control text-center" name="query" placeholder="Search..." @bind="Keyword">
 				</div>
 
 				<div class="col-1 my-4">
@@ -44,7 +57,7 @@
 			@* Filters *@
 			<div class="filters row justify-content-center align-items-center">
 				<div class="col-2">
-					<select id="publishDate" class="form-select text-center" aria-label="Default select example">
+					<select id="publishDate" class="form-select text-center" aria-label="Default select example" @bind="VideoPublishDate">
 						<option value="" selected>Any time</option>
 						<option value="2022">2022</option>
 						<option value="2021">2021</option>
@@ -61,7 +74,7 @@
 				</div>
 
 				<div class="col-2">
-					<select id="duration" class="form-select text-center" aria-label="Default select example">
+					<select id="duration" class="form-select text-center" aria-label="Default select example" @bind="VideoDuration">
 						<option value="" selected>Any duration</option>
 						<option value="1">> 60 min</option>
 						<option value="2">30 - 60 min</option>
@@ -71,7 +84,7 @@
 				</div>
 
 				<div class="col-2">
-					<select id="orderBy" class="form-select text-center" aria-label="Default select example">
+					<select id="orderBy" class="form-select text-center" aria-label="Default select example" @bind="OrderResultsBy">
 						<option value="1" selected>Date</option>
 						<option value="2">Views</option>
 						<option value="3">Likes</option>
@@ -83,26 +96,27 @@
 			@* Toggle order by descending results *@
 			<div class="filters row justify-content-center align-items-center">
 				<div class="col-2 mt-4 form-check">
-					<input id="order" class="form-check-input mx-0" type="checkbox" value="DESC">
+					<input id="order" class="form-check-input mx-0" type="checkbox" value="DESC" @bind="OrderResults">
 					<label class="form-check-label" for="order">Ascending</label>
 				</div>
 			</div>
 
 			@* Search Button *@
 			@* TODO: use Blazor data binding instead of JS to call search function *@
-			<button id="searchButton" class="btn btn-light btn-lg mt-4" type="submit" @onclick="Search">
+			<button id="searchButton" class="btn btn-light btn-lg mt-4" type="submit" disabled="@isSearchDisabled">
 				<span id="loadingIcon" class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>
-				<span id="searchButtonLabel">Search Starchives</span>
+				<span id="searchButtonLabel">@searchButtonLabel</span>
 			</button>
 		</form>
 
 		@* Search results get displayed inside this div *@
 		<div id="resultsContainer" class="mx-auto justify-content-center">
 			<p id="resultHeader" class="mb-0 pt-4 text-center"></p>
-			<div id="results" class="pt-4 d-flex flex-column justify-content-center"></div>
+			<div id="results" class="pt-4 d-flex flex-column justify-content-center">@results</div>
 		</div>
 
 	</div>
+
 </div>
 
 <!-- Cards for caveats and tips -->
@@ -172,15 +186,101 @@
 
 @code
 {
+	// Define the search parameters as properties
+	private string Keyword          { get; set; }
+	private string VideoPublishDate { get; set; }
+	private string VideoDuration    { get; set; }
+	private string OrderResultsBy   { get; set; }
+	private string OrderResults     { get; set; }
+	private int    PageNumber       { get; set; } = 1;
+
+	private bool   isSearchDisabled      = false;
+	private string searchButtonLabel     = "Search";
+	private bool   isResultHeaderVisible = true;
+	private string results               = string.Empty;
+
 	/// <summary>
-	/// TODO: Executes a call to the database to retrieve videos and captions matching the filters specified by the user.
+	/// Executes a call to the database to retrieve videos and captions matching the filters specified by the user.
 	/// </summary>
 	/// <returns></returns>
-	async Task Search()
+	private async Task Search()
 	{
+		// Prevent the form from submitting the traditional way
 		await Task.Delay(100);
 		Debug.Print("Search Button was clicked");
+
+		// Build the query string parameters
+		//var queryString = $"?query={Keyword}&date={VideoPublishDate}&duration={VideoDuration}&orderBy={OrderResultsBy}&order={OrderResults}&page={PageNumber}";
+
+		var query = $"?query={Keyword}";
+
+		try
+		{
+			DisableSearchButton();
+
+			var client = HttpClientFactory.CreateClient("api");
+			Log.Debug(client.BaseAddress?.AbsoluteUri ?? "");
+
+			// send a GET request to the caption search API endpoint
+			var response = await client.GetAsync($"api/videos{query}");
+
+			// Check if the response was successful
+			if (response.IsSuccessStatusCode)
+			{
+				// Parse the response content as JSON or handle it as needed
+				var result = await response.Content.ReadFromJsonAsync<List<object>>();
+
+				// Update the UI with the search results
+				// You can use properties or state variables to store and display the results in your Razor component
+				Log.Information($"{result?.Count}");
+
+				EnableSearchButton();
+			}
+			else
+			{
+				// Handle the error case
+				// You can display an error message or handle the error in any other way appropriate for your application
+				Debug.Print("Error: " + response.ReasonPhrase);
+			}
+		}
+		catch (HttpRequestException ex)
+		{
+			// Handle any exceptions that occurred during the HTTP request
+			// You can display an error message or handle the exception in any other way appropriate for your application
+			Log.Error(ex, "Exception: " + ex.Message);
+		}
 	}
+
+
+
+	private void DisableSearchButton()
+	{
+		// Disable the search button to prevent additional queries while loading
+		isSearchDisabled  = true;
+		searchButtonLabel = "Searching";
+
+		// Hide the result header
+		isResultHeaderVisible = false;
+
+		// Clear the results
+		results = string.Empty;
+	}
+
+
+
+	private void EnableSearchButton()
+	{
+		// Re-enable the search button after the search completes
+		isSearchDisabled  = false;
+		searchButtonLabel = "Search";
+
+		// Show the result header and update the results
+		isResultHeaderVisible = true;
+		results               = "Search results go here";
+
+		InvokeAsync(StateHasChanged); // Trigger a re-render
+	}
+
 
 
 

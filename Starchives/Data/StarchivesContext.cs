@@ -9,8 +9,7 @@ namespace Starchives.Data
 {
     public class StarchivesContext : DbContext
     {
-        public StarchivesContext (DbContextOptions<StarchivesContext> options)
-            : base(options)
+        public StarchivesContext (DbContextOptions<StarchivesContext> options) : base(options)
         {
         }
 
