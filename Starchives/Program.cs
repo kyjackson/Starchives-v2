@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Build.Framework;
 using Serilog.Events;
 using Microsoft.AspNetCore.Components;
+using Starchives.Models;
 
 
 
@@ -40,7 +41,7 @@ public static class Program
 		const string logTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss}] - {Level:u3} - {Message:lj}{NewLine}{Exception}";
 
 		Log.Logger = new LoggerConfiguration()
-					 .MinimumLevel.Debug()
+					 .MinimumLevel.Information()
 					 .MinimumLevel.Override("Microsoft.AspNetCore.Hosting", LogEventLevel.Warning)
 					 .MinimumLevel.Override("Microsoft.AspNetCore.Mvc", LogEventLevel.Warning)
 					 .MinimumLevel.Override("Microsoft.AspNetCore.Routing", LogEventLevel.Warning)
@@ -203,7 +204,7 @@ public static class Program
 	/// <param name="app">The web app for which API endpoints will be configured.</param>
 	private static void ConfigureApi(this WebApplication app)
 	{
-		// map API routes
+		// test endpoint
 		app.MapGet("/api", async (StarchivesContext db) =>
 		{
 			var videos = await db.Videos.ToListAsync();
@@ -211,26 +212,89 @@ public static class Program
 			return Results.Ok(videos);
 		});
 
-		app.MapGet("/api/results", async (StarchivesContext db, string query, string date = "1/1/2024", string duration = "10", string orderBy = "Date", string order = "desc", int page = 1) =>
-		{
-			var videos = await db.Videos
-								 .Where(video => db.Captions
-												   .Any(caption => caption.VideoId == video.VideoId && EF.Functions.Like(caption.Text.ToLower(), $"%{query}%")))
-								 .ToListAsync();
 
-			return Results.Ok(videos);
-		});
 
+		// gets a list of videos matching all valid query parameters included in the request
+		// TODO: original working endpoint
+		//app.MapGet("/api/videos", async (StarchivesContext db, HttpRequest request) =>
+		//{
+		//	var keywords      = request.Query["keywords"];
+		//	var publishYear   = request.Query["publishYear"];
+		//	var duration      = request.Query["duration"];
+		//	var sortBy        = request.Query["sortBy"];
+		//	var sortDirection = request.Query["sortDirection"];
+
+		//	var videos = await db.Videos
+		//						 .Where(video => db.Captions
+		//										   .Any(caption => caption.VideoId == video.VideoId && EF.Functions.Like(caption.Text.ToLower(), $"%{keywords}%")))
+		//						 .ToListAsync();
+
+		//	// TODO: paginate the results
+		//	var videoPages = new List<object>();
+
+
+
+		//	return Results.Ok(videoPages);
+		//});
+
+
+
+		// TODO: second pagination attempt
 		app.MapGet("/api/videos", async (StarchivesContext db, HttpRequest request) =>
 		{
-			var query = request.Query["query"];
+			var keywords      = request.Query["keywords"];
+			var publishYear   = request.Query["publishYear"];
+			var duration      = request.Query["duration"];
+			var sortBy        = request.Query["sortBy"];
+			var sortDirection = request.Query["sortDirection"];
+			var page          = int.TryParse(request.Query["page"],     out var parsedPage) ? parsedPage : 1;
+			var pageSize      = int.TryParse(request.Query["pageSize"], out var parsedPageSize) ? parsedPageSize : 10;
 
-			var videos = await db.Videos
-								 .Where(video => db.Captions
-												   .Any(caption => caption.VideoId == video.VideoId && EF.Functions.Like(caption.Text.ToLower(), $"%{query}%")))
-								 .ToListAsync();
+			// build the base query
+			var query = db.Videos
+						  .Where(video => db.Captions
+											.Any(caption => caption.VideoId == video.VideoId && EF.Functions.Like(caption.Text.ToLower(), $"%{keywords}%")));
 
-			return Results.Ok(videos);
+			// apply sorting
+			if (!string.IsNullOrEmpty(sortBy))
+			{
+				query = sortDirection == "desc"
+					? query.OrderByDescending(video => EF.Property<object>(video, sortBy))
+					: query.OrderBy(video => EF.Property<object>(video,   sortBy));
+			}
+
+			// get the total count first (before applying Skip and Take)
+			var totalCount = await query.CountAsync();
+
+			// apply pagination
+			var paginatedData = await query
+										.Skip((page - 1) * pageSize)
+										.Take(pageSize)
+										.Select(video => new
+										{
+											video.VideoId,
+											video.Title,
+											video.PublishedAt,
+											video.Duration,
+											video.ViewCount,
+											video.LikeCount,
+											video.CommentCount,
+											video.Captions
+											// Add other fields you need here
+										})
+										.ToListAsync();
+
+			// prepare the response object with pagination info
+			var videoPages = new
+			{
+				CurrentPage = page,
+				PageSize = pageSize,
+				TotalCount = totalCount,
+				TotalPages = (int)Math.Ceiling((double)totalCount / pageSize),
+				Data = paginatedData
+			};
+
+			return Results.Ok(videoPages);
 		});
 	}
 	#endregion

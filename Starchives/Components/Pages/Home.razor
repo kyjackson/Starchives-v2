@@ -2,8 +2,12 @@
 
 @using Microsoft.AspNetCore.Components
 @using System.Diagnostics
+@using System.Net
 @using System.Net.Http
 @using System.Threading.Tasks
+@using System.Web
+@using Microsoft.IdentityModel.Tokens
+@using Newtonsoft.Json
 @using Serilog
 @using Starchives.Models
 
@@ -28,7 +32,7 @@
 			@* Search bar and filters switch *@
 			<div class="row justify-content-center align-items-center">
 				<div class="col-6 my-4">
-					<input id="searchBar" type="text" class="form-control text-center" name="query" placeholder="Search..." @bind="Keyword">
+					<input id="searchBar" type="text" class="form-control text-center" name="query" placeholder="Search..." @bind="Keywords">
 				</div>
 
 				<div class="col-1 my-4">
@@ -57,7 +61,7 @@
 			@* Filters *@
 			<div class="filters row justify-content-center align-items-center">
 				<div class="col-2">
-					<select id="publishDate" class="form-select text-center" aria-label="Default select example" @bind="VideoPublishDate">
+					<select id="publishDate" class="form-select text-center" aria-label="Default select example" @bind="PublishYear">
 						<option value="" selected>Any time</option>
 						<option value="2022">2022</option>
 						<option value="2021">2021</option>
@@ -74,7 +78,7 @@
 				</div>
 
 				<div class="col-2">
-					<select id="duration" class="form-select text-center" aria-label="Default select example" @bind="VideoDuration">
+					<select id="duration" class="form-select text-center" aria-label="Default select example" @bind="Duration">
 						<option value="" selected>Any duration</option>
 						<option value="1">> 60 min</option>
 						<option value="2">30 - 60 min</option>
@@ -84,7 +88,7 @@
 				</div>
 
 				<div class="col-2">
-					<select id="orderBy" class="form-select text-center" aria-label="Default select example" @bind="OrderResultsBy">
+					<select id="orderBy" class="form-select text-center" aria-label="Default select example" @bind="SortBy">
 						<option value="1" selected>Date</option>
 						<option value="2">Views</option>
 						<option value="3">Likes</option>
@@ -96,28 +100,49 @@
 			@* Toggle order by descending results *@
 			<div class="filters row justify-content-center align-items-center">
 				<div class="col-2 mt-4 form-check">
-					<input id="order" class="form-check-input mx-0" type="checkbox" value="DESC" @bind="OrderResults">
+					<input id="order" class="form-check-input mx-0" type="checkbox" value="DESC" @bind="SortDirection">
 					<label class="form-check-label" for="order">Ascending</label>
 				</div>
 			</div>
 
 			@* Search Button *@
-			@* TODO: use Blazor data binding instead of JS to call search function *@
 			<button id="searchButton" class="btn btn-light btn-lg mt-4" type="submit" disabled="@isSearchDisabled">
-				<span id="loadingIcon" class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>
+
+				@if (isSearchDisabled)
+				{
+					<span id="loadingIcon" class="spinner-grow spinner-grow-sm me-2" role="status"></span>
+				}
+
 				<span id="searchButtonLabel">@searchButtonLabel</span>
 			</button>
 		</form>
 
 		@* Search results get displayed inside this div *@
 		<div id="resultsContainer" class="mx-auto justify-content-center">
-			<p id="resultHeader" class="mb-0 pt-4 text-center"></p>
-			<div id="results" class="pt-4 d-flex flex-column justify-content-center">@results</div>
+			
+			@if (!searchResultsMessage.IsNullOrEmpty())
+			{
+				<p id="resultHeader" class="mb-0 pt-4 text-center">@searchResultsMessage</p>
+			}
+			
+			@* TODO: add nav bar for results here *@
+			
+			<div id="results" class="pt-4 d-flex flex-column justify-content-center">
+
+				@foreach (var result in searchResults)
+				{
+					@* TODO: replace this with Result component *@
+					<p>result @searchResults.IndexOf(result)</p>
+				}
+
+			</div>
 		</div>
 
 	</div>
 
 </div>
+
+
 
 <!-- Cards for caveats and tips -->
 <div class="row align-items-md-stretch">
@@ -186,18 +211,24 @@
 
 @code
 {
-	// Define the search parameters as properties
-	private string Keyword          { get; set; }
-	private string VideoPublishDate { get; set; }
-	private string VideoDuration    { get; set; }
-	private string OrderResultsBy   { get; set; }
-	private string OrderResults     { get; set; }
-	private int    PageNumber       { get; set; } = 1;
+	// define the search parameters as properties
+	private string Keywords      { get; set; } = string.Empty;
+	private string PublishYear   { get; set; } = string.Empty;
+	private string Duration      { get; set; } = string.Empty;
+	private string SortBy        { get; set; } = "PublishedAt";
+	private string SortDirection { get; set; } = "desc";
+	private int    PageNumber    { get; set; } = 1;
 
-	private bool   isSearchDisabled      = false;
-	private string searchButtonLabel     = "Search";
-	private bool   isResultHeaderVisible = true;
-	private string results               = string.Empty;
+	private bool         isSearchDisabled      = false;
+	private bool         isLoadingIconDisabled = true;
+	private string       searchButtonLabel     = "Search Starchives";
+	private bool         isResultHeaderVisible = true;
+	private string       searchResultsMessage  = string.Empty;
+	private List<object> searchResults         = new();
+	private int          searchResultsCount    = 0;
+	private VideoPage?   videoPage;
+
+
 
 	/// <summary>
 	/// Executes a call to the database to retrieve videos and captions matching the filters specified by the user.
@@ -205,48 +236,64 @@
 	/// <returns></returns>
 	private async Task Search()
 	{
-		// Prevent the form from submitting the traditional way
-		await Task.Delay(100);
-		Debug.Print("Search Button was clicked");
+		Log.Debug("Search Button was clicked");
 
-		// Build the query string parameters
-		//var queryString = $"?query={Keyword}&date={VideoPublishDate}&duration={VideoDuration}&orderBy={OrderResultsBy}&order={OrderResults}&page={PageNumber}";
+		// build the query to use in the GET request
+		var uri = new UriBuilder(Navigation.BaseUri)
+		{
+			Port = -1
+		};
 
-		var query = $"?query={Keyword}";
+		var query = HttpUtility.ParseQueryString(string.Empty);
+		query["keywords"] = Keywords;
+		if (!PublishYear.IsNullOrEmpty()) { query["publishYear"]     = PublishYear; }
+		if (!Duration.IsNullOrEmpty()) { query["duration"]           = Duration; }
+		if (!SortBy.IsNullOrEmpty()) { query["sortBy"]               = SortBy; }
+		if (!SortDirection.IsNullOrEmpty()) { query["sortDirection"] = SortDirection; }
+
+		uri.Query = query.ToString();
+		Log.Debug(uri.Query);
+
+
 
 		try
 		{
+			var startTime = DateTime.Now;
 			DisableSearchButton();
 
 			var client = HttpClientFactory.CreateClient("api");
 			Log.Debug(client.BaseAddress?.AbsoluteUri ?? "");
 
-			// send a GET request to the caption search API endpoint
-			var response = await client.GetAsync($"api/videos{query}");
+			// send GET request to the caption search API endpoint
+			var response = await client.GetAsync($"api/videos{uri.Query}");
 
-			// Check if the response was successful
 			if (response.IsSuccessStatusCode)
 			{
-				// Parse the response content as JSON or handle it as needed
-				var result = await response.Content.ReadFromJsonAsync<List<object>>();
+				// on success, get the list of objects (videos) in the JSON response
+				//searchResults = await response.Content.ReadFromJsonAsync<List<object>>() ?? []; // TODO: original result working without pagination
+				var responseContent = await response.Content.ReadAsStringAsync();
+				videoPage = JsonConvert.DeserializeObject<VideoPage>(responseContent);
 
-				// Update the UI with the search results
-				// You can use properties or state variables to store and display the results in your Razor component
-				Log.Information($"{result?.Count}");
+				// update the UI with the search results
+				var endTime     = DateTime.Now;
+				var elapsedTime = endTime - startTime;
+				//searchResultsMessage = $"Found {searchResults.Count} videos containing '{Keywords}' in {elapsedTime:s\\.ff} seconds"; // TODO: original result working without pagination
+				searchResultsMessage = $"Found {videoPage?.TotalCount} videos containing '{Keywords}' in {elapsedTime:s\\.ff} seconds";
+				Log.Information($"{searchResultsMessage}");
 
 				EnableSearchButton();
 			}
 			else
 			{
-				// Handle the error case
-				// You can display an error message or handle the error in any other way appropriate for your application
-				Debug.Print("Error: " + response.ReasonPhrase);
+				// on failure, display generic failure message and log the reason the request failed
+				searchResultsMessage = "Something went wrong. If this problem persists, try again later or <a href=\"mailto:admin@starchives.org\">contact me</a>.";
+				Log.Warning("Error: " + response.ReasonPhrase);
 			}
 		}
 		catch (HttpRequestException ex)
 		{
-			// Handle any exceptions that occurred during the HTTP request
-			// You can display an error message or handle the exception in any other way appropriate for your application
+			// on non-request-related error, display generic failure message and log the exception
+			searchResultsMessage = "Something went wrong. If this problem persists, try again later or <a href=\"mailto:admin@starchives.org\">contact me</a>.";
 			Log.Error(ex, "Exception: " + ex.Message);
 		}
 	}
@@ -255,28 +302,19 @@
 
 	private void DisableSearchButton()
 	{
-		// Disable the search button to prevent additional queries while loading
-		isSearchDisabled  = true;
-		searchButtonLabel = "Searching";
-
-		// Hide the result header
-		isResultHeaderVisible = false;
-
-		// Clear the results
-		results = string.Empty;
+		// clear any current results and disable the search button to prevent additional queries while loading
+		searchResultsMessage = string.Empty;
+		isSearchDisabled     = true;
+		searchButtonLabel    = "Searching";
 	}
 
 
 
 	private void EnableSearchButton()
 	{
-		// Re-enable the search button after the search completes
+		// re-enable search button after the search completes, then re-render the component
 		isSearchDisabled  = false;
-		searchButtonLabel = "Search";
-
-		// Show the result header and update the results
-		isResultHeaderVisible = true;
-		results               = "Search results go here";
+		searchButtonLabel = "Search Starchives";
 
 		InvokeAsync(StateHasChanged); // Trigger a re-render
 	}
@@ -293,5 +331,16 @@
 		{
 			await JSRuntime.InvokeVoidAsync("initializeHomePage");
 		}
+	}
+
+
+
+	public class VideoPage
+	{
+		public int         CurrentPage { get; set; }
+		public int         PageSize    { get; set; }
+		public int         TotalCount  { get; set; }
+		public int         TotalPages  { get; set; }
+		public List<Video> Data        { get; set; }
 	}
 }

@@ -75,10 +75,10 @@ function initializeHomePage() {
 		event.preventDefault();
 
 		// disable search button to prevent additional queries while loading
-		$("#searchButton").attr("disabled", "disabled");
-		$("#searchButtonLabel").html("Searching");
-		$("#resultHeader").hide();
-		$("#results").empty();
+		//$("#searchButton").attr("disabled", "disabled");
+		//$("#searchButtonLabel").html("Searching");
+		//$("#resultHeader").hide();
+		//$("#results").empty();
 
 		// get values of search bar and filter ready for ajax
 		let keyword = $("#searchBar").val();
@@ -97,8 +97,8 @@ function initializeHomePage() {
 			page: pageNumber
 		};
 
-		$("#loadingIcon").show();
-		$("#loadingIcon").css("visibility", "visible");
+		//$("#loadingIcon").show();
+		//$("#loadingIcon").css("visibility", "visible");
 
 		resultsLengthFound = false;
 		totalPages = 0;
