@@ -279,6 +279,7 @@ public static class Program
 										  video.ViewCount,
 										  video.LikeCount,
 										  video.CommentCount,
+										  video.EmbedHtml,
 										  video.Captions
 
 										  // Add other fields you need here

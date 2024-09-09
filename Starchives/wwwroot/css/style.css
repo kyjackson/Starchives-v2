@@ -92,6 +92,10 @@
     display: none;
 }
 
+.stats-labels {
+	color: rgb(255, 2550, 255) !important;
+}
+
 .stats {
     color: rgb(255, 165, 46);
 }

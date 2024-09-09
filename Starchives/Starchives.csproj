@@ -61,4 +61,8 @@
 		</EmbeddedResource>
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="wwwroot\bootstrap\" />
+	</ItemGroup>
+
 </Project>

@@ -8,7 +8,8 @@
 				data-bs-toggle="collapse"
 				data-bs-target="#collapse-@Video.VideoId"
 				aria-controls="collapse-@Video.VideoId"
-				aria-expanded="false">
+				aria-expanded="@Expand"
+				onclick="((e) => Expand = !Expand)">
 
 			<div class="accordion-header-text flex-grow-1">
 				@Video.Title
@@ -26,16 +27,20 @@
 
 		<div id="body-@Video.VideoId" class="bg-dark accordion-body">
 			<div class="d-flex justify-content-center">
-				<div id="player-@Video.VideoId" class="me-3"></div>
+				<div id="player-@Video.VideoId" class="me-3">
+					@* @((MarkupString)Video.EmbedHtml) *@
 
-				<div id="info-@Video.VideoId" class="text-start">
-					<p class="divider">
+					<iframe width="640" height="360" src="//www.youtube.com/embed/@Video.VideoId" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+				</div>
+
+				<div id="info-@Video.VideoId" class="text-start ">
+					<p class="divider stats-labels">
 						Video Stats
 					</p>
 					<hr class="divider">
 
 					<div class="d-flex">
-						<div class="pe-2 text-end">
+						<div class="pe-2 text-end stats-labels">
 							Duration:
 							<br>
 							Views:
@@ -67,4 +72,6 @@
 @code {
 	[Parameter]
 	public required Video Video { get; set; }
+
+	public bool Expand = false;
 }
