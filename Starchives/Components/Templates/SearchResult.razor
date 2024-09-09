@@ -1,5 +1,70 @@
-﻿<h3>SearchResult</h3>
+﻿@using Starchives.Models
+
+<div id="@Video.VideoId" class="bg-dark pt-3 accordion-item">
+
+	<h2 id="header-@Video.VideoId" class="accordion-header">
+		<button class="bg-dark bg-gradient text-white accordion-button collapsed d-flex"
+				type="button"
+				data-bs-toggle="collapse"
+				data-bs-target="#collapse-@Video.VideoId"
+				aria-controls="collapse-@Video.VideoId"
+				aria-expanded="false">
+
+			<div class="accordion-header-text flex-grow-1">
+				@Video.Title
+			</div>
+
+			<div class="accordion-header-text">
+				@Video.PublishedAt
+			</div>
+		</button>
+	</h2>
+
+	<div id="collapse-@Video.VideoId"
+		 class="bg-secondary accordion-collapse collapse"
+		 aria-labelledby="header-@Video.VideoId">
+
+		<div id="body-@Video.VideoId" class="bg-dark accordion-body">
+			<div class="d-flex justify-content-center">
+				<div id="player-@Video.VideoId" class="me-3"></div>
+
+				<div id="info-@Video.VideoId" class="text-start">
+					<p class="divider">
+						Video Stats
+					</p>
+					<hr class="divider">
+
+					<div class="d-flex">
+						<div class="pe-2 text-end">
+							Duration:
+							<br>
+							Views:
+							<br>
+							Likes:
+							<br>
+							Comments:
+						</div>
+						<div>
+							<span class="stats">@Video.Duration</span>
+							<br>
+							<span class="stats">@Video.ViewCount</span>
+							<br>
+							<span class="stats">@Video.LikeCount</span>
+							<br>
+							<span class="stats">@Video.CommentCount</span>
+						</div>
+					</div>
+
+				</div>
+			</div>
+
+			<div id="timestamps-@Video.VideoId" class="d-flex flex-column"></div>
+		</div>
+	</div>
+
+</div>
 
 @code {
-
+	[Parameter]
+	public required Video Video { get; set; }
 }

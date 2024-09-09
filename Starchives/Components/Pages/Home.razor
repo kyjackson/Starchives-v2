@@ -10,6 +10,7 @@
 @using Newtonsoft.Json
 @using Serilog
 @using Starchives.Models
+@using Starchives.Components.Templates
 
 @rendermode InteractiveServer
 
@@ -124,18 +125,23 @@
 			{
 				<p id="resultHeader" class="mb-0 pt-4 text-center">@searchResultsMessage</p>
 			}
-			
-			@* TODO: add nav bar for results here *@
-			
-			<div id="results" class="pt-4 d-flex flex-column justify-content-center">
 
-				@foreach (var result in searchResults)
-				{
-					@* TODO: replace this with Result component *@
-					<p>result @searchResults.IndexOf(result)</p>
-				}
+			@if (videoPage != null)
+			{
+				<div id="results" class="pt-4 d-flex flex-column justify-content-center">
 
-			</div>
+					<SearchResultsNavBar CurrentPage="@videoPage!.CurrentPage" TotalPages="@videoPage!.TotalPages" />
+
+					<div id="resultsAccordion" class="mx-auto w-75 accordion accordion-flush">
+					@foreach (var result in videoPage!.Data)
+					{
+						<SearchResult Video="@result"/>
+					}
+					</div>
+
+				</div>
+			}
+
 		</div>
 
 	</div>
@@ -218,6 +224,7 @@
 	private string SortBy        { get; set; } = "PublishedAt";
 	private string SortDirection { get; set; } = "desc";
 	private int    PageNumber    { get; set; } = 1;
+	private int    PageCount     { get; set; } = 1;
 
 	private bool         isSearchDisabled      = false;
 	private bool         isLoadingIconDisabled = true;
@@ -303,6 +310,7 @@
 	private void DisableSearchButton()
 	{
 		// clear any current results and disable the search button to prevent additional queries while loading
+		videoPage            = null;
 		searchResultsMessage = string.Empty;
 		isSearchDisabled     = true;
 		searchButtonLabel    = "Searching";

@@ -268,30 +268,31 @@ public static class Program
 
 			// apply pagination
 			var paginatedData = await query
-										.Skip((page - 1) * pageSize)
-										.Take(pageSize)
-										.Select(video => new
-										{
-											video.VideoId,
-											video.Title,
-											video.PublishedAt,
-											video.Duration,
-											video.ViewCount,
-											video.LikeCount,
-											video.CommentCount,
-											video.Captions
-											// Add other fields you need here
-										})
-										.ToListAsync();
+									  .Skip((page - 1) * pageSize)
+									  .Take(pageSize)
+									  .Select(video => new
+									  {
+										  video.VideoId,
+										  video.Title,
+										  video.PublishedAt,
+										  video.Duration,
+										  video.ViewCount,
+										  video.LikeCount,
+										  video.CommentCount,
+										  video.Captions
+
+										  // Add other fields you need here
+									  })
+									  .ToListAsync();
 
 			// prepare the response object with pagination info
 			var videoPages = new
 			{
 				CurrentPage = page,
-				PageSize = pageSize,
-				TotalCount = totalCount,
-				TotalPages = (int)Math.Ceiling((double)totalCount / pageSize),
-				Data = paginatedData
+				PageSize    = pageSize,
+				TotalCount  = totalCount,
+				TotalPages  = (int)Math.Ceiling((double)totalCount / pageSize),
+				Data        = paginatedData
 			};
 
 			return Results.Ok(videoPages);

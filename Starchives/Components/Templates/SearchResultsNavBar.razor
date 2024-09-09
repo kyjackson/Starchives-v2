@@ -1,5 +1,39 @@
-﻿<h3>SearchResultsNavBar</h3>
+﻿<div id="pageNavBar" class="mx-auto justify-content-end">
+	<nav aria-label="page-navigation">
+		<ul class="pagination">
+			<li id="previousPage" class="page-item">
+				<button 
+					id="previousPageButton" 
+					class="page-link bg-dark bg-gradient" 
+					onclick="this.blur();" 
+					aria-label="Previous">
+
+					<span aria-hidden="true">&laquo;</span>
+				</button>
+			</li>
+
+			<li id="currentPage" class="page-item">
+				<span id="currentPageText" class="page-link bg-dark bg-gradient">@CurrentPage of @TotalPages</span>
+			</li>
+
+			<li id="nextPage" class="page-item">
+				<button 
+					id="nextPageButton" 
+					class="page-link bg-dark bg-gradient" 
+					onclick="this.blur();" 
+					aria-label="Next">
+
+					<span aria-hidden="true">&raquo;</span>
+				</button>
+			</li>
+		</ul>
+	</nav>
+</div>
 
 @code {
+	[Parameter]
+	public int? CurrentPage { get; set; } = 1;
 
+	[Parameter]
+	public int? TotalPages { get; set; } = 1;
 }
