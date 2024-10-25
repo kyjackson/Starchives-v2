@@ -23,7 +23,7 @@ namespace Starchives.Facades.YouTube
 
 
 
-		#region Functions
+		#region Methods
 		public YouTubeService GetYouTubeService()
 		{
 			return new YouTubeService(new BaseClientService.Initializer()
@@ -125,18 +125,28 @@ namespace Starchives.Facades.YouTube
 		{
 			var youTubeService = new YoutubeClient();
 			var videoUrl       = $"https://www.youtube.com/watch?v={videoId}";
-			var trackManifest  = await youTubeService.Videos.ClosedCaptions.GetManifestAsync(videoUrl);
-			var trackInfo      = trackManifest.TryGetByLanguage("en");
 
-			if (trackInfo == null)
+			try 
 			{
+				var trackManifest = await youTubeService.Videos.ClosedCaptions.GetManifestAsync(videoUrl);
+				var trackList     = trackManifest.Tracks;
+				var trackInfo     = trackManifest.TryGetByLanguage("en");
+
+				if (trackInfo == null)
+				{
+					return null;
+				}
+
+				// get the full caption track for the video if it exists
+				var track = await youTubeService.Videos.ClosedCaptions.GetAsync(trackInfo);
+
+				return track;
+			}
+			catch (Exception ex)
+			{
+				Log.Error(ex, $"Error occurred while attempting to get caption track for video ID {videoId}: {ex.Message}");
 				return null;
 			}
-
-			// get the full caption track for the video if it exists
-			var track = await youTubeService.Videos.ClosedCaptions.GetAsync(trackInfo);
-
-			return track;
 		}
 		#endregion
 	}

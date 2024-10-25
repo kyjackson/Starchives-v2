@@ -152,6 +152,7 @@ else
 	private async Task UpdateVideos()
 	{
 		var startTime = DateTime.Now;
+		Log.Information($"Started updating videos");
 
 		// 1. authenticate to the YouTube API
 		var youtubeService = YouTubeApiFacade.GetYouTubeService();
@@ -181,7 +182,6 @@ else
 			dbVideo.LikeCount         = (long?)video.Statistics.LikeCount    ?? 0;
 			dbVideo.CommentCount      = (long?)video.Statistics.CommentCount ?? 0;
 			dbVideo.EmbedHtml         = video.Player.EmbedHtml               ?? "";
-			dbVideo.CaptionsAvailable = video.ContentDetails.Caption == "true";
 
 			videosToUpsert.Add(dbVideo);
 		}
@@ -196,7 +196,7 @@ else
 
 		var endTime = DateTime.Now;
 		var elapsedTime = endTime - startTime;
-		Log.Information($"Videos updated (time elapsed: {elapsedTime:g})");
+		Log.Information($"Finished updating videos (time elapsed: {elapsedTime:g})");
 	}
 
 
@@ -208,6 +208,7 @@ else
 	private async Task UpdateCaptions()
 	{
 		var startTime = DateTime.Now;
+		Log.Information($"Started updating captions");
 
 		var videosWithoutCaptions = await DbContext.Videos
 															.Where(video => !DbContext.Captions.Any(caption => caption.VideoId == video.VideoId))
@@ -217,7 +218,6 @@ else
 		var captionsToInsert = new List<Caption>();
 		foreach (var video in videosWithoutCaptions)
 		{
-
 			var captionTrack = await YouTubeApiFacade.GetCaptionTrackByVideoId(video.VideoId);
 
 			if (captionTrack == null)
@@ -233,10 +233,10 @@ else
 				{
 					var dbCaption = new Caption();
 
-					dbCaption.VideoId = video.VideoId;
+					dbCaption.VideoId  = video.VideoId;
 					dbCaption.Duration = caption.Duration;
-					dbCaption.Offset = caption.Offset;
-					dbCaption.Text = caption.Text;
+					dbCaption.Offset   = caption.Offset;
+					dbCaption.Text     = caption.Text;
 
 					captionsToInsert.Add(dbCaption);
 				}
@@ -247,7 +247,7 @@ else
 
 		var endTime = DateTime.Now;
 		var elapsedTime = endTime - startTime;
-		Log.Information($"Captions updated (time elapsed: {elapsedTime:g})");
+		Log.Information($"Finished updating captions (time elapsed: {elapsedTime:g})");
 	}
 
 
