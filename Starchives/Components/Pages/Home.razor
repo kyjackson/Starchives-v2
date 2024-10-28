@@ -130,12 +130,12 @@
 			{
 				<div id="results" class="pt-4 d-flex flex-column justify-content-center">
 
-					<SearchResultsNavBar CurrentPage="@videoPage!.CurrentPage" TotalPages="@videoPage!.TotalPages" />
+					<SearchResultsNavBar CurrentPage="@videoPage!.CurrentPage" TotalPages="@videoPage!.PageCount" />
 
 					<div id="resultsAccordion" class="mx-auto w-75 accordion accordion-flush">
 					@foreach (var result in videoPage!.Data)
 					{
-						<SearchResult Video="@result"/>
+						<SearchResult Video="@result" Keywords="@Keywords"/>
 					}
 					</div>
 
@@ -285,7 +285,7 @@
 				var endTime     = DateTime.Now;
 				var elapsedTime = endTime - startTime;
 				//searchResultsMessage = $"Found {searchResults.Count} videos containing '{Keywords}' in {elapsedTime:s\\.ff} seconds"; // TODO: original result working without pagination
-				searchResultsMessage = $"Found {videoPage?.TotalCount} videos containing '{Keywords}' in {elapsedTime:s\\.ff} seconds";
+				searchResultsMessage = $"Found {videoPage?.VideoCount} videos containing '{Keywords}' in {elapsedTime:s\\.ff} seconds";
 				Log.Information($"{searchResultsMessage}");
 
 				EnableSearchButton();
@@ -347,8 +347,9 @@
 	{
 		public int         CurrentPage { get; set; }
 		public int         PageSize    { get; set; }
-		public int         TotalCount  { get; set; }
-		public int         TotalPages  { get; set; }
+		public int         VideoCount  { get; set; }
+		public int         PageCount   { get; set; }
 		public List<Video> Data        { get; set; }
+		public string      Keywords    { get; set; }
 	}
 }

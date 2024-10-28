@@ -1,13 +1,23 @@
-﻿@using System.Diagnostics
+﻿@*
+    This component sets up the nav menu, header, and footer for use by each page.
+*@
+
+@using System.Diagnostics
 @inherits LayoutComponentBase
 
 @inject IJSRuntime        JSRuntime
 @inject SharedService     SharedService
 @inject NavigationManager NavigationManager
 
-@*
-    This component sets up the nav menu, header, and footer for use by each page.
-*@
+@* Required *@
+<MudThemeProvider />
+<MudPopoverProvider />
+
+@* Needed for dialogs *@
+<MudDialogProvider />
+
+@* Needed for snackbars *@
+<MudSnackbarProvider />
 
 <div class="page">
 	<div class="sidebar">

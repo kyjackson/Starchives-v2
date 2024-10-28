@@ -1,4 +1,8 @@
-﻿@using Starchives.Models
+﻿@*
+    This component represents a single accordion element and its contents in the video search results.
+*@
+
+@using Starchives.Models
 
 <div id="@Video.VideoId" class="bg-dark pt-3 accordion-item">
 
@@ -65,6 +69,11 @@
 
 			<div id="timestamps-@Video.VideoId" class="d-flex flex-column">
 				@* TODO - enumerate timestamped results here *@
+				
+				@foreach (var caption in Video.Captions.Where(c => c.Text.Contains(Keywords)))
+				{
+					<p class="stats-labels">@caption.Text</p>
+				}
 			</div>
 		</div>
 	</div>
@@ -74,6 +83,9 @@
 @code {
 	[Parameter]
 	public required Video Video { get; set; }
+
+	[Parameter]
+	public required string Keywords { get; set; }
 
 	public bool Expand = false;
 }

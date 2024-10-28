@@ -12,6 +12,7 @@ using Microsoft.Build.Framework;
 using Serilog.Events;
 using Microsoft.AspNetCore.Components;
 using Starchives.Models;
+using MudBlazor.Services;
 
 
 
@@ -147,6 +148,9 @@ public static class Program
 		builder.Services.AddRazorComponents()
 			   .AddInteractiveServerComponents();
 
+		// services for MudBlazor
+		builder.Services.AddMudServices();
+
 		Log.Information("Services loaded");
 	}
 
@@ -251,23 +255,23 @@ public static class Program
 			var pageSize      = int.TryParse(request.Query["pageSize"], out var parsedPageSize) ? parsedPageSize : 10;
 
 			// build the base query
-			var query = db.Videos
+			var videos = db.Videos
 						  .Where(video => db.Captions
 											.Any(caption => caption.VideoId == video.VideoId && EF.Functions.Like(caption.Text.ToLower(), $"%{keywords}%")));
 
 			// apply sorting
 			if (!string.IsNullOrEmpty(sortBy))
 			{
-				query = sortDirection == "desc"
-					? query.OrderByDescending(video => EF.Property<object>(video, sortBy))
-					: query.OrderBy(video => EF.Property<object>(video,   sortBy));
+				videos = sortDirection == "desc"
+					? videos.OrderByDescending(video => EF.Property<object>(video, sortBy))
+					: videos.OrderBy(video => EF.Property<object>(video,   sortBy));
 			}
 
 			// get the total count first (before applying Skip and Take)
-			var totalCount = await query.CountAsync();
+			var videoCount = await videos.CountAsync();
 
 			// apply pagination
-			var paginatedData = await query
+			var paginatedData = await videos
 									  .Skip((page - 1) * pageSize)
 									  .Take(pageSize)
 									  .Select(video => new
@@ -287,16 +291,17 @@ public static class Program
 									  .ToListAsync();
 
 			// prepare the response object with pagination info
-			var videoPages = new
+			var videoPage = new
 			{
 				CurrentPage = page,
 				PageSize    = pageSize,
-				TotalCount  = totalCount,
-				TotalPages  = (int)Math.Ceiling((double)totalCount / pageSize),
-				Data        = paginatedData
-			};
+				VideoCount  = videoCount,
+				PageCount   = (int)Math.Ceiling((double)videoCount / pageSize),
+				Data        = paginatedData,
+                Keywords    = keywords.ToString()
+            };
 
-			return Results.Ok(videoPages);
+			return Results.Ok(videoPage);
 		});
 	}
 	#endregion
