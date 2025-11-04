@@ -19,7 +19,7 @@ jobs:
     env:
       RUNTIME: linux-x64
       OUT_DIR: out
-      IMAGE_NAME: starchives/web
+      IMAGE_NAME: starchives
 
     steps:
       - name: Checkout
