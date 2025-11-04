@@ -60,14 +60,44 @@ jobs:
 
       # Build a self-contained EF migration bundle (same project for --project and --startup-project)
       - name: Build EF migration bundle
+        shell: bash
+        env:
+          RUNTIME: ${{ env.RUNTIME }}
         run: |
-          dotnet tool install --global dotnet-ef
-          export PATH="$PATH:$HOME/.dotnet/tools"
+          set -euo pipefail
+        
+          # Install the matching EF tool (9.x) and expose it in PATH
+          dotnet tool install --global dotnet-ef --version 9.*
+          export PATH="$HOME/.dotnet/tools:$PATH"
+        
+          echo "== SDK =="
+          dotnet --info
+        
+          echo "== Packages =="
+          dotnet restore Starchives/Starchives.csproj
+          dotnet list Starchives/Starchives.csproj package
+        
+          echo "== EF version =="
+          dotnet ef --version
+        
+          echo "== List migrations =="
+          dotnet ef migrations list \
+            --project Starchives/Starchives.csproj \
+            --startup-project Starchives/Starchives.csproj \
+            --framework net9.0 \
+            -v
+        
+          echo "== Build self-contained migration bundle =="
           dotnet ef migrations bundle \
             --project Starchives/Starchives.csproj \
             --startup-project Starchives/Starchives.csproj \
-            --self-contained --target-runtime $RUNTIME \
-            --output $OUT_DIR/app/efbundle
+            --framework net9.0 \
+            --self-contained \
+            --target-runtime "$RUNTIME" \
+            --output $OUT_DIR/app/efbundle \
+            -v
+        
+          chmod +x $OUT_DIR/app/efbundle
 
       # Create a minimal runtime Dockerfile right in the OUT_DIR
       - name: Create Dockerfile
