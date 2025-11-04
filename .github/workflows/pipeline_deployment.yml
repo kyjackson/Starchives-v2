@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Image/app tag to use (e.g., v1.0.0 or manual-test)'
+        description: 'Image/app tag to use (leave blank to auto-generate)'
         required: false
-        default: manual-${{ github.sha }}
+        default: ''
 
   # automatic runs when you push a tag like v1.2.3
   push:
@@ -28,23 +28,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Resolve a TAG from either workflow_dispatch input or the pushed git tag
+      # Decide which tag to use:
+      # 1) if the event is a tag push -> use that tag
+      # 2) else if a manual input tag is provided -> use it
+      # 3) else -> use manual-<shortsha>
       - name: Resolve TAG
         id: v
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          GIT_SHA: ${{ github.sha }}
+        shell: bash
         run: |
-          if [ -n "${{ github.event.inputs.tag }}" ]; then
-            echo "TAG=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          if [ "${REF_TYPE}" = "tag" ] && [ -n "${REF_NAME}" ]; then
+            TAG="${REF_NAME}"
+          elif [ -n "${INPUT_TAG}" ]; then
+            TAG="${INPUT_TAG}"
           else
-            echo "TAG=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+            SHORTSHA="$(echo "${GIT_SHA}" | cut -c1-7)"
+            TAG="manual-${SHORTSHA}"
           fi
-          echo "Resolved TAG=$(cat $GITHUB_OUTPUT)"
+          echo "TAG=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Resolved TAG=${TAG}"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
-      # Publish the Blazor app to a flat folder
       - name: Publish self-contained app
         run: >
           dotnet publish Starchives/Starchives.Web/Starchives.Web.csproj
@@ -52,7 +64,6 @@ jobs:
           -p:PublishSingleFile=true -p:PublishReadyToRun=true
           -o $OUT_DIR/app
 
-      # Produce a self-contained EF migrations bundle (no SDK needed on App Platform)
       - name: Build EF migration bundle
         run: |
           dotnet tool install --global dotnet-ef
@@ -63,7 +74,6 @@ jobs:
             --self-contained --target-runtime $RUNTIME \
             --output $OUT_DIR/app/efbundle
 
-      # Put a minimal Dockerfile next to the artifacts
       - name: Prepare Docker context
         run: cp Starchives/Dockerfile $OUT_DIR/Dockerfile
 
