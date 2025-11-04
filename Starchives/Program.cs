@@ -218,6 +218,16 @@ public static class Program
 
 
 
+		app.MapGet("/health", () =>
+		{
+			var ver   = Environment.GetEnvironmentVariable("APP_VERSION")    ?? "unknown";
+			var sha   = Environment.GetEnvironmentVariable("APP_SHA")        ?? "unknown";
+			var built = Environment.GetEnvironmentVariable("APP_BUILD_TIME") ?? "unknown";
+			return Results.Ok(new { status = "ok", version = ver, sha, built });
+		});
+
+
+
 		// gets a list of videos matching all valid query parameters included in the request
 		// TODO: original working endpoint
 		//app.MapGet("/api/videos", async (StarchivesContext db, HttpRequest request) =>

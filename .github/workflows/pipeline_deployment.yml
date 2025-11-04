@@ -19,112 +19,91 @@ jobs:
     env:
       RUNTIME: linux-x64
       OUT_DIR: out
-      IMAGE_NAME: starchives
+      IMAGE_REPOSITORY: starchives            # <- single DOCR repo name
+      REGISTRY: registry.digitalocean.com/${{ secrets.DOCR_REGISTRY }}
+      PROJECT: Starchives/Starchives.csproj   # <- single-project layout
+
+    outputs:
+      image-digest: ${{ steps.docker_build.outputs.digest }}
+      final-tag:    ${{ steps.v.outputs.TAG }}
+      short-sha:    ${{ steps.v.outputs.SHORTSHA }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Resolve TAG
+      - name: Resolve TAG + SHORTSHA + BUILDTIME
         id: v
-        env:
-          REF_TYPE: ${{ github.ref_type }}
-          REF_NAME: ${{ github.ref_name }}
-          INPUT_TAG: ${{ github.event.inputs.tag }}
-          GIT_SHA: ${{ github.sha }}
         shell: bash
         run: |
-          if [ "${REF_TYPE}" = "tag" ] && [ -n "${REF_NAME}" ]; then
-            TAG="${REF_NAME}"
-          elif [ -n "${INPUT_TAG}" ]; then
-            TAG="${INPUT_TAG}"
+          if [ "${{ github.ref_type }}" = "tag" ] && [ -n "${{ github.ref_name }}" ]; then
+            TAG="${{ github.ref_name }}"
+          elif [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
           else
-            SHORTSHA="$(echo "${GIT_SHA}" | cut -c1-7)"
-            TAG="manual-${SHORTSHA}"
+            TAG="manual-$(echo "${GITHUB_SHA}" | cut -c1-7)"
           fi
-          echo "TAG=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "Resolved TAG=${TAG}"
+          SHORTSHA="$(echo "${GITHUB_SHA}" | cut -c1-7)"
+          BUILDTIME="$(date -u +%FT%TZ)"
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          echo "SHORTSHA=$SHORTSHA" >> $GITHUB_OUTPUT
+          echo "BUILDTIME=$BUILDTIME" >> $GITHUB_OUTPUT
 
-      - name: Setup .NET
+      - name: Setup .NET 9
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '9.0.x'
 
-      # Publish the Blazor app (single project: Starchives/Starchives.csproj)
+      - name: Ensure script execute bits
+        run: chmod +x infra/*.sh
+
       - name: Publish self-contained app
-        run: >
-          dotnet publish Starchives/Starchives.csproj
-          -c Release -r $RUNTIME --self-contained true
-          -p:PublishSingleFile=true -p:PublishReadyToRun=true
-          -o $OUT_DIR/app
+        run: infra/publish.sh
 
-      # Build a self-contained EF migration bundle (same project for --project and --startup-project)
       - name: Build EF migration bundle
-        shell: bash
-        env:
-          RUNTIME: ${{ env.RUNTIME }}
-        run: |
-          set -euo pipefail
-        
-          # Install the matching EF Core 9 global tool
-          dotnet tool install --global dotnet-ef --version 9.*
-          export PATH="$HOME/.dotnet/tools:$PATH"
-        
-          echo "== SDK =="
-          dotnet --info
-        
-          echo "== Packages =="
-          dotnet restore Starchives/Starchives.csproj
-          dotnet list Starchives/Starchives.csproj package
-        
-          echo "== EF tool version =="
-          dotnet-ef --version
-        
-          echo "== List migrations =="
-          dotnet-ef migrations list \
-            --project Starchives/Starchives.csproj \
-            --startup-project Starchives/Starchives.csproj \
-            --framework net9.0 \
-            -v
-        
-          echo "== Build self-contained migration bundle =="
-          dotnet-ef migrations bundle \
-            --project Starchives/Starchives.csproj \
-            --startup-project Starchives/Starchives.csproj \
-            --framework net9.0 \
-            --self-contained \
-            --target-runtime "$RUNTIME" \
-            --output $OUT_DIR/app/efbundle \
-            -v
-        
-          chmod +x $OUT_DIR/app/efbundle
-
-      # Create a minimal runtime Dockerfile right in the OUT_DIR
-      - name: Create Dockerfile
-        run: |
-          cat > $OUT_DIR/Dockerfile <<'EOF'
-          FROM debian:bookworm-slim
-          RUN apt-get update && apt-get install -y \
-              ca-certificates curl tzdata libc6 libgcc1 libgssapi-krb5-2 libstdc++6 \
-              && rm -rf /var/lib/apt/lists/*
-          WORKDIR /app
-          COPY app/ ./
-          EXPOSE 8080
-          CMD ["./Starchives"]
-          EOF
+        run: infra/build-efbundle.sh
 
       - name: Install doctl & login
+        env:
+          DO_TOKEN: ${{ secrets.DO_TOKEN }}
+        run: infra/install-doctl.sh
+
+      - name: Build & push image (tag, sha, latest)
+        id: docker_build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.OUT_DIR }}
+          file: infra/Dockerfile
+          push: true
+          build-args: |
+            BUILD_VERSION=${{ steps.v.outputs.TAG }}
+            BUILD_SHA=${{ steps.v.outputs.SHORTSHA }}
+            BUILD_TIME=${{ steps.v.outputs.BUILDTIME }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_REPOSITORY }}:${{ steps.v.outputs.TAG }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_REPOSITORY }}:sha-${{ steps.v.outputs.SHORTSHA }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_REPOSITORY }}:latest
+          labels: |
+            org.opencontainers.image.title=Starchives
+            org.opencontainers.image.version=${{ steps.v.outputs.TAG }}
+            org.opencontainers.image.revision=${{ steps.v.outputs.SHORTSHA }}
+            org.opencontainers.image.created=${{ steps.v.outputs.BUILDTIME }}
+
+  # OPTIONAL: immutable deploy by digest (turn off auto-deploy on push in App Platform first)
+  deploy-by-digest:
+    if: always()
+    needs: [build-and-push]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install doctl
         run: |
           curl -sL https://github.com/digitalocean/doctl/releases/download/v1.118.0/doctl-1.118.0-linux-amd64.tar.gz | tar -xz
           sudo mv doctl /usr/local/bin/
           doctl auth init -t "${{ secrets.DO_TOKEN }}"
-          doctl registry login
 
-      - name: Build & push image
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ env.OUT_DIR }}
-          push: true
-          tags: |
-            registry.digitalocean.com/${{ secrets.DOCR_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.v.outputs.TAG }}
-            registry.digitalocean.com/${{ secrets.DOCR_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+      - name: Create deployment with updated image digest
+        run: |
+          doctl apps create-deployment \
+            --app-id "${{ secrets.DO_APP_ID }}" \
+            --update-sources \
+            --wait
