@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.9.34701.34
+# Visual Studio Version 18
+VisualStudioVersion = 18.0.11201.2 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Starchives", "Starchives\Starchives.csproj", "{872B1FEF-9B8A-4473-93B9-9CFB25D189AF}"
 EndProject
@@ -9,6 +9,7 @@ Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-co
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F073C1F1-A42F-4B95-ADF7-8F533CDE244A}"
 	ProjectSection(SolutionItems) = preProject
+		app-spec.yml = app-spec.yml
 		README.md = README.md
 	EndProjectSection
 EndProject

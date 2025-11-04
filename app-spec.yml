@@ -1,0 +1,35 @@
+services:
+  - name: web
+    image:
+      registry_type: DOCR
+      registry: registry.digitalocean.com
+      repository: starchives-container-registry/starchives/web
+      tag: latest
+      deploy_on_push:
+        enabled: true
+    http_port: 8080
+    run_command: ./Starchives.Web
+    envs:
+      - key: ASPNETCORE_URLS
+        scope: RUN_TIME
+        value: http://0.0.0.0:8080
+      - key: DOTNET_ENVIRONMENT
+        scope: RUN_TIME
+        value: Production
+      - key: ConnectionStrings__Default
+        scope: RUN_TIME
+        value: ${DB_CONNECTION_STRING}
+
+jobs:
+  - name: migrate
+    kind: PRE_DEPLOY
+    image:
+      registry_type: DOCR
+      registry: registry.digitalocean.com
+      repository: starchives-container-registry/starchives/web
+      tag: latest
+    run_command: ./efbundle
+    envs:
+      - key: ConnectionStrings__Default
+        scope: RUN_TIME
+        value: ${DB_CONNECTION_STRING}
