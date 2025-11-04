@@ -1,15 +1,12 @@
 name: release
 
 on:
-  # manual runs from the Actions tab
   workflow_dispatch:
     inputs:
       tag:
         description: 'Image/app tag to use (leave blank to auto-generate)'
         required: false
         default: ''
-
-  # automatic runs when you push a tag like v1.2.3
   push:
     tags: ['v*.*.*']
 
@@ -28,10 +25,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Decide which tag to use:
-      # 1) if the event is a tag push -> use that tag
-      # 2) else if a manual input tag is provided -> use it
-      # 3) else -> use manual-<shortsha>
       - name: Resolve TAG
         id: v
         env:
@@ -57,25 +50,38 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      # Publish the Blazor app (single project: Starchives/Starchives.csproj)
       - name: Publish self-contained app
         run: >
-          dotnet publish Starchives/Starchives.Web/Starchives.Web.csproj
+          dotnet publish Starchives/Starchives.csproj
           -c Release -r $RUNTIME --self-contained true
           -p:PublishSingleFile=true -p:PublishReadyToRun=true
           -o $OUT_DIR/app
 
+      # Build a self-contained EF migration bundle (same project for --project and --startup-project)
       - name: Build EF migration bundle
         run: |
           dotnet tool install --global dotnet-ef
           export PATH="$PATH:$HOME/.dotnet/tools"
           dotnet ef migrations bundle \
-            --project Starchives/Starchives.Data/Starchives.Data.csproj \
-            --startup-project Starchives/Starchives.Web/Starchives.Web.csproj \
+            --project Starchives/Starchives.csproj \
+            --startup-project Starchives/Starchives.csproj \
             --self-contained --target-runtime $RUNTIME \
             --output $OUT_DIR/app/efbundle
 
-      - name: Prepare Docker context
-        run: cp Starchives/Dockerfile $OUT_DIR/Dockerfile
+      # Create a minimal runtime Dockerfile right in the OUT_DIR
+      - name: Create Dockerfile
+        run: |
+          cat > $OUT_DIR/Dockerfile <<'EOF'
+          FROM debian:bookworm-slim
+          RUN apt-get update && apt-get install -y \
+              ca-certificates curl tzdata libc6 libgcc1 libgssapi-krb5-2 libstdc++6 \
+              && rm -rf /var/lib/apt/lists/*
+          WORKDIR /app
+          COPY app/ ./
+          EXPOSE 8080
+          CMD ["./Starchives"]
+          EOF
 
       - name: Install doctl & login
         run: |
