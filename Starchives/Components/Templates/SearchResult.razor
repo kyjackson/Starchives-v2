@@ -1,0 +1,91 @@
+﻿@*
+    This component represents a single accordion element and its contents in the video search results.
+*@
+
+@using Starchives.Models
+
+<div id="@Video.VideoId" class="bg-dark pt-3 accordion-item">
+
+	<h2 id="header-@Video.VideoId" class="accordion-header">
+		<button class="bg-dark bg-gradient text-white accordion-button collapsed d-flex"
+				type="button"
+				data-bs-toggle="collapse"
+				data-bs-target="#collapse-@Video.VideoId"
+				aria-controls="collapse-@Video.VideoId"
+				aria-expanded="@Expand"
+				onclick="((e) => Expand = !Expand)">
+
+			<div class="accordion-header-text flex-grow-1">
+				@Video.Title
+			</div>
+
+			<div class="accordion-header-text">
+				@Video.PublishedAt
+			</div>
+		</button>
+	</h2>
+
+	<div id="collapse-@Video.VideoId"
+		 class="bg-secondary accordion-collapse collapse"
+		 aria-labelledby="header-@Video.VideoId">
+
+		<div id="body-@Video.VideoId" class="bg-dark accordion-body">
+			<div class="d-flex justify-content-center">
+				<div id="player-@Video.VideoId" class="me-3">
+					@* @((MarkupString)Video.EmbedHtml) *@
+
+					<iframe width="640" height="360" src="//www.youtube.com/embed/@Video.VideoId" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+				</div>
+
+				<div id="info-@Video.VideoId" class="text-start ">
+					<p class="divider stats-labels">
+						Video Stats
+					</p>
+					<hr class="divider">
+
+					<div class="d-flex">
+						<div class="pe-2 text-end stats-labels">
+							Duration:
+							<br>
+							Views:
+							<br>
+							Likes:
+							<br>
+							Comments:
+						</div>
+						<div>
+							<span class="stats">@Video.Duration</span>
+							<br>
+							<span class="stats">@Video.ViewCount</span>
+							<br>
+							<span class="stats">@Video.LikeCount</span>
+							<br>
+							<span class="stats">@Video.CommentCount</span>
+						</div>
+					</div>
+
+				</div>
+			</div>
+
+			<div id="timestamps-@Video.VideoId" class="d-flex flex-column">
+				@* TODO - enumerate timestamped results here *@
+				
+				@foreach (var caption in Video.Captions.Where(c => c.Text.Contains(Keywords)))
+				{
+					<p class="stats-labels">@caption.Text</p>
+				}
+			</div>
+		</div>
+	</div>
+
+</div>
+
+@code {
+	[Parameter]
+	public required Video Video { get; set; }
+
+	[Parameter]
+	public required string Keywords { get; set; }
+
+	public bool Expand = false;
+}

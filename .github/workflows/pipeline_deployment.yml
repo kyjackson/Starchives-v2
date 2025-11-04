@@ -1,0 +1,69 @@
+name: release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    env:
+      RUNTIME: linux-x64
+      OUT_DIR: out
+      IMAGE_NAME: starchives/web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract tag
+        id: v
+        run: echo "TAG=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Publish the Blazor app to a flat folder
+      - name: Publish self-contained app
+        run: >
+          dotnet publish Starchives/Starchives.Web/Starchives.Web.csproj
+          -c Release -r $RUNTIME --self-contained true
+          -p:PublishSingleFile=true -p:PublishReadyToRun=true
+          -o $OUT_DIR/app
+
+      # Produce a self-contained EF migrations bundle (no SDK needed on App Platform)
+      - name: Build EF migration bundle
+        run: |
+          dotnet tool install --global dotnet-ef
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet ef migrations bundle \
+            --project Starchives/Starchives.Data/Starchives.Data.csproj \
+            --startup-project Starchives/Starchives.Web/Starchives.Web.csproj \
+            --self-contained --target-runtime $RUNTIME \
+            --output $OUT_DIR/app/efbundle
+
+      # Put a minimal Dockerfile next to the artifacts
+      - name: Prepare Docker context
+        run: |
+          cp infra/Dockerfile $OUT_DIR/Dockerfile
+
+      - name: Install doctl & login
+        run: |
+          curl -sL https://github.com/digitalocean/doctl/releases/download/v1.118.0/doctl-1.118.0-linux-amd64.tar.gz | tar -xz
+          sudo mv doctl /usr/local/bin/
+          doctl auth init -t "${{ secrets.DO_TOKEN }}"
+          doctl registry login
+
+      - name: Build & push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.OUT_DIR }}
+          push: true
+          tags: |
+            registry.digitalocean.com/${{ secrets.DOCR_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.v.outputs.TAG }}
+            registry.digitalocean.com/${{ secrets.DOCR_REGISTRY }}/${{ env.IMAGE_NAME }}:latest

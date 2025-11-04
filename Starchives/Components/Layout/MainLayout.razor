@@ -1,0 +1,99 @@
+﻿@*
+    This component sets up the nav menu, header, and footer for use by each page.
+*@
+
+@using System.Diagnostics
+@inherits LayoutComponentBase
+
+@inject IJSRuntime        JSRuntime
+@inject SharedService     SharedService
+@inject NavigationManager NavigationManager
+
+@* Required *@
+<MudThemeProvider />
+<MudPopoverProvider />
+
+@* Needed for dialogs *@
+<MudDialogProvider />
+
+@* Needed for snackbars *@
+<MudSnackbarProvider />
+
+<div class="page">
+	<div class="sidebar">
+		@* OnUpdateHeader="(value) => { UpdateHeader(value); }" *@
+		<NavMenu/>
+	</div>
+
+	<main id="cover-column-group" class="d-flex align-items-stretch">
+		
+		<div id="cover-column-left" class="p-4"></div>
+
+		@* Container for the header, footer, and main content of the body *@
+		<div id="cover-column-center" class="cover-container d-flex flex-column w-100 h-100 p-4">
+
+			<Header Title="@_pageTitle" />
+
+			<div class="container content px-0 py-4 mb-auto">
+				@Body
+			</div>
+			
+			<Footer />
+
+		</div>
+		
+		<div id="cover-column-right" class="p-4"></div>
+
+		@* Make all external links open in new tabs *@
+		<script>
+			$("main a").attr({
+				target: "_blank",
+				rel: "noreferrer noopener"
+			});
+		</script>
+
+	</main>
+</div>
+
+<div id="blazor-error-ui">
+	An unhandled error has occurred.
+	<a href="" class="reload">Reload</a>
+	<a class="dismiss">🗙</a>
+</div>
+
+@code {
+
+	private string _pageTitle = "Home";
+
+	protected override void OnInitialized()
+	{
+		NavigationManager.LocationChanged += HandleLocationChanged;
+		UpdatePageTitle(NavigationManager.Uri);
+	}
+
+	private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+	{
+		UpdatePageTitle(e.Location);
+	}
+
+	private void UpdatePageTitle(string uri)
+	{
+		var relativePath = NavigationManager.ToBaseRelativePath(uri);
+
+		_pageTitle = relativePath switch
+		{
+			""        => "Caption Search",
+			"about"   => "About",
+			"admin"   => "Admin",
+			_         => "Unknown Page"
+		};
+
+		StateHasChanged(); // Ensure the header is updated
+	}
+
+	public void Dispose()
+	{
+		NavigationManager.LocationChanged -= HandleLocationChanged;
+	}
+
+}

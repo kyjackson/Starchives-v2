@@ -1,0 +1,28 @@
+﻿#log-console-wrapper {
+	overflow: auto;
+	display: flex;
+	flex-direction: column-reverse;
+}
+
+#log-console {
+	/*overflow: scroll;*/
+	/*height: 600px;*/
+	background-color: #000000;
+	border: 1px solid #808080;
+}
+
+#log-console * {
+	overflow-anchor: none;
+}
+
+#anchor {
+	overflow-anchor: auto;
+	height: 1px;
+}
+
+.log-event {
+	font-family: Courier New, Courier, monospace;
+	color: #00ff21;
+	text-align: left;
+	/*overflow-wrap: break-word;*/
+}
