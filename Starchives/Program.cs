@@ -124,7 +124,7 @@ public static class Program
 		// services for database access
 		builder.Services.AddDbContextFactory<StarchivesContext>(options =>
 																	options
-																		.UseSqlServer(_connectionString ?? throw new InvalidOperationException("Connection string for Starchives database not found.")));
+																		.UseNpgsql(_connectionString ?? throw new InvalidOperationException("Connection string for Starchives database not found.")));
 																		//.EnableSensitiveDataLogging());
 		
 		// services for Entity Framework Core

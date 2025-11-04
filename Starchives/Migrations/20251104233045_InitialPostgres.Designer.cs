@@ -2,9 +2,9 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Starchives.Data;
 
 #nullable disable
@@ -12,18 +12,18 @@ using Starchives.Data;
 namespace Starchives.Migrations
 {
     [DbContext(typeof(StarchivesContext))]
-    [Migration("20240825081742_AddCaptionsTable")]
-    partial class AddCaptionsTable
+    [Migration("20251104233045_InitialPostgres")]
+    partial class InitialPostgres
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.8")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+                .HasAnnotation("ProductVersion", "9.0.10")
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Starchives.Models.Caption", b =>
                 {
@@ -31,23 +31,25 @@ namespace Starchives.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("CaptionId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("CaptionId"));
 
                     b.Property<TimeSpan>("Duration")
-                        .HasColumnType("time");
+                        .HasColumnType("interval");
 
                     b.Property<TimeSpan>("Offset")
-                        .HasColumnType("time");
+                        .HasColumnType("interval");
 
                     b.Property<string>("Text")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("VideoId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.HasKey("CaptionId");
+
+                    b.HasIndex("VideoId");
 
                     b.ToTable("Captions");
                 });
@@ -55,39 +57,36 @@ namespace Starchives.Migrations
             modelBuilder.Entity("Starchives.Models.Video", b =>
                 {
                     b.Property<string>("VideoId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<bool>("CaptionsAvailable")
-                        .HasColumnType("bit");
+                        .HasColumnType("text");
 
                     b.Property<string>("ChannelId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<long>("CommentCount")
                         .HasColumnType("bigint");
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Duration")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("EmbedHtml")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<long>("LikeCount")
                         .HasColumnType("bigint");
 
                     b.Property<DateTime>("PublishedAt")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<long>("ViewCount")
                         .HasColumnType("bigint");
@@ -95,6 +94,22 @@ namespace Starchives.Migrations
                     b.HasKey("VideoId");
 
                     b.ToTable("Videos");
+                });
+
+            modelBuilder.Entity("Starchives.Models.Caption", b =>
+                {
+                    b.HasOne("Starchives.Models.Video", "Video")
+                        .WithMany("Captions")
+                        .HasForeignKey("VideoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Video");
+                });
+
+            modelBuilder.Entity("Starchives.Models.Video", b =>
+                {
+                    b.Navigation("Captions");
                 });
 #pragma warning restore 612, 618
         }
