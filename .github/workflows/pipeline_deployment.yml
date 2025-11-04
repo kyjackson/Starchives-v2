@@ -88,22 +88,3 @@ jobs:
             org.opencontainers.image.version=${{ steps.v.outputs.TAG }}
             org.opencontainers.image.revision=${{ steps.v.outputs.SHORTSHA }}
             org.opencontainers.image.created=${{ steps.v.outputs.BUILDTIME }}
-
-  # OPTIONAL: immutable deploy by digest (turn off auto-deploy on push in App Platform first)
-  deploy-by-digest:
-    if: always()
-    needs: [build-and-push]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Install doctl
-        run: |
-          curl -sL https://github.com/digitalocean/doctl/releases/download/v1.118.0/doctl-1.118.0-linux-amd64.tar.gz | tar -xz
-          sudo mv doctl /usr/local/bin/
-          doctl auth init -t "${{ secrets.DO_TOKEN }}"
-
-      - name: Create deployment with updated image digest
-        run: |
-          doctl apps create-deployment \
-            --app-id "${{ secrets.DO_APP_ID }}" \
-            --update-sources \
-            --wait
