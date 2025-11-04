@@ -66,7 +66,7 @@ jobs:
         run: |
           set -euo pipefail
         
-          # Install the matching EF tool (9.x) and expose it in PATH
+          # Install the matching EF Core 9 global tool
           dotnet tool install --global dotnet-ef --version 9.*
           export PATH="$HOME/.dotnet/tools:$PATH"
         
@@ -77,18 +77,18 @@ jobs:
           dotnet restore Starchives/Starchives.csproj
           dotnet list Starchives/Starchives.csproj package
         
-          echo "== EF version =="
-          dotnet ef --version
+          echo "== EF tool version =="
+          dotnet-ef --version
         
           echo "== List migrations =="
-          dotnet ef migrations list \
+          dotnet-ef migrations list \
             --project Starchives/Starchives.csproj \
             --startup-project Starchives/Starchives.csproj \
             --framework net9.0 \
             -v
         
           echo "== Build self-contained migration bundle =="
-          dotnet ef migrations bundle \
+          dotnet-ef migrations bundle \
             --project Starchives/Starchives.csproj \
             --startup-project Starchives/Starchives.csproj \
             --framework net9.0 \
