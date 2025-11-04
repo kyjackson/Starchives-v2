@@ -268,40 +268,40 @@ public static class Program
 			}
 
 			// get the total count first (before applying Skip and Take)
-			var videoCount = await videos.CountAsync();
+			//var videoCount = await videos.CountAsync();
 
-			// apply pagination
-			var paginatedData = await videos
-									  .Skip((page - 1) * pageSize)
-									  .Take(pageSize)
-									  .Select(video => new
-									  {
-										  video.VideoId,
-										  video.Title,
-										  video.PublishedAt,
-										  video.Duration,
-										  video.ViewCount,
-										  video.LikeCount,
-										  video.CommentCount,
-										  video.EmbedHtml,
-										  video.Captions
+			//// apply pagination
+			//var paginatedData = await videos
+			//						  .Skip((page - 1) * pageSize)
+			//						  .Take(pageSize)
+			//						  .Select(video => new
+			//						  {
+			//							  video.VideoId,
+			//							  video.Title,
+			//							  video.PublishedAt,
+			//							  video.Duration,
+			//							  video.ViewCount,
+			//							  video.LikeCount,
+			//							  video.CommentCount,
+			//							  video.EmbedHtml,
+			//							  video.Captions
 
-										  // Add other fields you need here
-									  })
-									  .ToListAsync();
+			//							  // Add other fields you need here
+			//						  })
+			//						  .ToListAsync();
 
-			// prepare the response object with pagination info
-			var videoPage = new
-			{
-				CurrentPage = page,
-				PageSize    = pageSize,
-				VideoCount  = videoCount,
-				PageCount   = (int)Math.Ceiling((double)videoCount / pageSize),
-				Data        = paginatedData,
-                Keywords    = keywords.ToString()
-            };
+			//// prepare the response object with pagination info
+			//var videoPage = new
+			//{
+			//	CurrentPage = page,
+			//	PageSize    = pageSize,
+			//	VideoCount  = videoCount,
+			//	PageCount   = (int)Math.Ceiling((double)videoCount / pageSize),
+			//	Data        = paginatedData,
+   //             Keywords    = keywords.ToString()
+   //         };
 
-			return Results.Ok(videoPage);
+			//return Results.Ok(videoPage);
 		});
 	}
 	#endregion
