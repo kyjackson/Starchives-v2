@@ -165,16 +165,19 @@ public static class Program
 		builder.Services.AddSingleton<SharedService>();
 
 		// services for the API controller
-		builder.Services.AddHttpClient("api", (sp, client) =>
+		builder.Services.AddScoped(sp =>
 		{
-			var cfg     = sp.GetRequiredService<IConfiguration>();
-			var baseUrl = cfg["ApiBaseUrl"];
-			if (!string.IsNullOrWhiteSpace(baseUrl))
-			{
-				client.BaseAddress = new Uri(baseUrl);
-			}
+			var cfg = sp.GetRequiredService<IConfiguration>();
+			var nav = sp.GetRequiredService<NavigationManager>();
+
+			var baseUrl = cfg["ApiBaseUrl"]; // set only in dev if you like
+			var baseUri = !string.IsNullOrWhiteSpace(baseUrl)
+							  ? new Uri(baseUrl,     UriKind.Absolute)
+							  : new Uri(nav.BaseUri, UriKind.Absolute);
+
+			return new HttpClient { BaseAddress = baseUri };
 		});
-		
+
 
 		// services for server-side component rendering
 		builder.Services.AddRazorComponents()

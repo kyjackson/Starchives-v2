@@ -9,8 +9,8 @@
 
 @rendermode InteractiveServer
 
-@inject NavigationManager  Navigation
-@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager Navigation
+@inject HttpClient        Http
 
 <PageTitle>Starchives</PageTitle>
 
@@ -311,10 +311,10 @@
 				DisableSearchButton();
 			}
 
-			var client = HttpClientFactory.CreateClient("api");
-			Log.Debug(client.BaseAddress?.AbsoluteUri ?? "");
+			//var client = Http.CreateClient("api");
+			//Log.Information(client.BaseAddress?.AbsoluteUri ?? "");
 
-			var response = await client.GetAsync($"api/videos{uri.Query}");
+			var response = await Http.GetAsync($"api/videos{uri.Query}");
 
 			if (response.IsSuccessStatusCode)
 			{
