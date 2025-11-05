@@ -1,9 +1,7 @@
 ﻿@page "/"
 
-@using System.Web
-@using Microsoft.IdentityModel.Tokens
+@using Microsoft.AspNetCore.Http
 @using Newtonsoft.Json
-@using Serilog
 @using Starchives.Models
 @using Starchives.Components.Templates
 
@@ -40,104 +38,114 @@
 
 			@if (FiltersEnabled)
 			{
-				@* Filter labels *@
-				<div class="row justify-content-center align-items-center">
-					<div class="col-2">
-						<span>Published:</span>
-					</div>
+				@* Vertical filters *@
+				<div class="row justify-content-center">
+					<div class="col-12 col-md-6 col-lg-4">
+						<div class="d-flex flex-column gap-3">
 
-					<div class="col-2">
-						<span>Duration:</span>
-					</div>
+							@* Published: dual-thumb single-track (MudExtensions MudRangeSlider), 2012 → current year, step 1 *@
+							<div class="text-start">
+								<label class="form-label m-0">
+									Published: <span class="ms-1 text-warning">@PublishedDisplay</span>
+								</label>
+								<MudRangeSlider T="int"
+								                              @bind-Value="_publishedValue"
+                                                              @bind-UpperValue="_publishedUpperValue"
+                                                              Range="true"
+								                              Min="@PublishedMinYear"
+								                              Max="@PublishedMaxYear"
+								                              Step="1"
+                                                              MinDistance="0"
+								                              TickMarks="true"
+								                              Color="Color.Warning"
+                                                              Class="m-0" 
+															  Variant="Variant.Filled" />
+								<small class="text-secondary">Range: @PublishedMinYear–@PublishedMaxYear</small>
+							</div>
 
-					<div class="col-2">
-						<span>Order By:</span>
-					</div>
-				</div>
+							@* Duration: dual-thumb single-track (MudExtensions MudRangeSlider), 0 → 60 (60 means 60+), step 5 *@
+							<div class="text-start">
+                                <label class="form-label m-0">
+                                    Duration: <span class="ms-1 text-warning">@DurationRangeDisplay</span>
+                                </label>
+                                <MudRangeSlider T="int"
+                                                              @bind-Value="@_durationValue"
+                                                              @bind-UpperValue="@_durationUpperValue"
+                                                              Range="true"
+                                                              Min="@DurationMinVal"
+                                                              Max="@DurationMaxVal"
+                                                              Step="@DurationStep"
+															  MinDistance="DurationStep"
+                                                              TickMarks="true"
+                                                              Color="Color.Warning" 
+                                                              Class="m-0"
+                                                              Variant="Variant.Filled"/>
+                                <small class="text-secondary">Range: 0–60+ minutes (5-minute steps)</small>
+                            </div>
 
-				@* Filters *@
-				<div class="row justify-content-center align-items-center">
-					<div class="col-2">
-						<select id="publishDate" class="form-select text-center" aria-label="Published filter" @bind="PublishYear">
-							<option value="">Any time</option>
-							<option value="2022">2022</option>
-							<option value="2021">2021</option>
-							<option value="2020">2020</option>
-							<option value="2019">2019</option>
-							<option value="2018">2018</option>
-							<option value="2017">2017</option>
-							<option value="2016">2016</option>
-							<option value="2015">2015</option>
-							<option value="2014">2014</option>
-							<option value="2013">2013</option>
-							<option value="2012">2012</option>
-						</select>
-					</div>
+							@* Order By: single-thumb slider with 4 discrete options (MudSlider) *@
+							<div class="text-start">
+								<label class="form-label m-0">
+									Order By: <span class="ms-1 text-warning">@OrderByDisplay</span>
+								</label>
+								<MudSlider T="int"
+										   @bind-Value="OrderByIndex"
+										   Min="0"
+										   Max="3"
+                                           Step="1"
+                                           TickMarks="true"
+										   TickMarkLabels="@_orderByLabels"
+										   Immediate="true"
+										   Color="Color.Warning"
+										   Class="m-0 bs-text" />
+							</div>
 
-					<div class="col-2">
-						<select id="duration" class="form-select text-center" aria-label="Duration filter" @bind="Duration">
-							<option value="">Any duration</option>
-							<option value="1">> 60 min</option>
-							<option value="2">30 - 60 min</option>
-							<option value="3">15 - 30 min</option>
-							<option value="4">&lt; 15 min</option>
-						</select>
-					</div>
+							@* Ascending checkbox on the right *@
+                            <div class="form-check form-check-reverse mt-2 text-end">
+                                <label class="form-check-label me-2" for="order">Ascending</label>
+                                <input id="order" class="form-check-input" type="checkbox" @bind="IsAscending">
+                            </div>
 
-					<div class="col-2">
-						<select id="orderBy" class="form-select text-center" aria-label="Order by" @bind="SortBy">
-							<option value="PublishedAt">Date</option>
-							<option value="ViewCount">Views</option>
-							<option value="LikeCount">Likes</option>
-							<option value="Duration">Duration</option>
-						</select>
-					</div>
-				</div>
-
-				@* Toggle order by ascending results *@
-				<div class="row justify-content-center align-items-center">
-					<div class="col-2 mt-4 form-check">
-						<input id="order" class="form-check-input mx-0" type="checkbox" @bind="IsAscending">
-						<label class="form-check-label" for="order">Ascending</label>
+                        </div>
 					</div>
 				</div>
 			}
 
 			@* Search Button *@
-			<button id="searchButton" class="btn btn-light btn-lg mt-4" type="submit" disabled="@isSearchDisabled">
+			<button id="searchButton" class="btn btn-light btn-lg mt-4" type="submit" disabled="@_isSearchDisabled">
 
-				@if (isSearchDisabled)
+				@if (_isSearchDisabled)
 				{
 					<span id="loadingIcon" class="spinner-grow spinner-grow-sm me-2" role="status"></span>
 				}
 
-				<span id="searchButtonLabel">@searchButtonLabel</span>
+				<span id="searchButtonLabel">@_searchButtonLabel</span>
 			</button>
 		</form>
 
 		@* Search results get displayed inside this div *@
 		<div id="resultsContainer" class="mx-auto justify-content-center">
 			
-			@if (!searchResultsMessage.IsNullOrEmpty())
+			@if (!string.IsNullOrEmpty(_searchResultsMessage))
 			{
-				<p id="resultHeader" class="mb-0 pt-4 text-center">@((MarkupString)searchResultsMessage)</p>
+				<p id="resultHeader" class="mb-0 pt-4 text-center">@((MarkupString)_searchResultsMessage)</p>
 			}
 
-			@if (videoPage != null)
+			@if (_videoPage != null)
 			{
 				<div id="results" class="pt-4 d-flex flex-column justify-content-center">
 
 					<SearchResultsNavBar
-						CurrentPage="@videoPage!.CurrentPage"
-						TotalPages="@videoPage!.PageCount"
+                        CurrentPage="@_videoPage!.CurrentPage"
+                        TotalPages="@_videoPage!.PageCount"
 						DisablePrevious="@IsFirstPage"
 						DisableNext="@IsLastPage"
-						IsLoading="@isPageLoading"
+						IsLoading="@_isPageLoading"
 						OnPrevious="GoToPreviousPage"
 						OnNext="GoToNextPage" />
 
 					<div id="resultsAccordion" class="mx-auto w-75 accordion accordion-flush">
-					@foreach (var result in videoPage!.Data)
+					@foreach (var result in _videoPage!.Data)
 					{
 						<SearchResult Video="@result" Keywords="@Keywords"/>
 					}
@@ -223,166 +231,192 @@
 {
 	// define the search parameters as properties
 	private string Keywords      { get; set; } = string.Empty;
-	private string PublishYear   { get; set; } = string.Empty;
-	private string Duration      { get; set; } = string.Empty;
+
 	private string SortBy        { get; set; } = "PublishedAt";
 	private string SortDirection { get; set; } = "desc";
 	private int    PageNumber    { get; set; } = 1;
-	private int    PageCount     { get; set; } = 1;
 
 	// UI state
-	private bool   FiltersEnabled     { get; set; } = false; // default hidden
-	private bool   IsAscending        { get; set; } = false; // default descending
+	private bool   FiltersEnabled     { get; set; } = false;
+	private bool   IsAscending        { get; set; } = false;
 
-	private bool         isSearchDisabled      = false;
-	private bool         isLoadingIconDisabled = true;
-	private string       searchButtonLabel     = "Search Starchives";
-	private bool         isResultHeaderVisible = true;
-	private string       searchResultsMessage  = string.Empty;
-	private List<object> searchResults         = new();
-	private int          searchResultsCount    = 0;
-	private VideoPage?   videoPage;
+	private bool         _isSearchDisabled      = false;
+	private string       _searchButtonLabel     = "Search Starchives";
+	private string       _searchResultsMessage  = string.Empty;
+	private VideoPage?   _videoPage;
 
 	// paging helpers
 	private bool _isPageNavigation = false;
-	private bool isPageLoading     = false; // new
-	private bool IsFirstPage => (videoPage?.CurrentPage ?? 1) <= 1;
-	private bool IsLastPage  => videoPage is not null && videoPage.CurrentPage >= videoPage.PageCount;
+    private bool _isPageLoading    = false;
+	private bool IsFirstPage => (_videoPage?.CurrentPage ?? 1) <= 1;
+	private bool IsLastPage  => _videoPage is not null && _videoPage.CurrentPage >= _videoPage.PageCount;
+
+	// ----- Published (Range) -----
+	private static int PublishedMinYear => 2012;
+	private static int PublishedMaxYear => DateTime.Now.Year;
+
+	private int _publishedValue      = 2012;
+	private int _publishedUpperValue = DateTime.Now.Year;
+	private string PublishedDisplay => $"{_publishedValue}–{_publishedUpperValue}";
+
+	private int PublishedFromYearInt => _publishedValue;
+	private int PublishedToYearInt   => _publishedUpperValue;
+
+	// ----- Duration (Range, 0..60 step 5; 60 -> 60+) -----
+    private const int DurationMinVal = 0;
+    private const int DurationMaxVal = 60;
+    private const int DurationStep   = 5;
+
+    private int _durationValue      = 0;
+	private int _durationUpperValue = 60;
+
+	private static string FormatDurationBound(int v) => v >= 60 ? "60+ min" : $"{v} min";
+	private string DurationRangeDisplay => $"{FormatDurationBound(_durationValue)} – {FormatDurationBound(_durationUpperValue)}";
+
+	// ----- Order By (single-thumb) -----
+	private int OrderByIndex
+	{
+		get => SortBy switch
+		{
+			"PublishedAt" => 0,
+            "Duration"    => 1,
+			"ViewCount"   => 2,
+			"LikeCount"   => 3,
+			_             => 0
+		};
+		set
+		{
+			SortBy = value switch
+			{
+				0 => "PublishedAt",
+                1 => "Duration",
+				2 => "ViewCount",
+				3 => "LikeCount",
+				_ => "PublishedAt"
+			};
+		}
+	}
+
+	private string OrderByDisplay => SortBy switch
+	{
+		"PublishedAt" => "Date",
+        "Duration"    => "Duration",
+		"ViewCount"   => "Views",
+		"LikeCount"   => "Likes",
+		_             => "Date"
+	};
+
+	private readonly string[] _orderByLabels = ["Date", "Duration", "Views", "Likes"];
+
+
 
 	private async Task GoToPreviousPage()
 	{
-		if (videoPage is null || IsFirstPage || isPageLoading) return;
+		if (_videoPage is null || IsFirstPage || _isPageLoading) return;
 		_isPageNavigation = true;
-		PageNumber        = videoPage.CurrentPage - 1;
-		isPageLoading     = true;
+		PageNumber        = _videoPage.CurrentPage - 1;
+        _isPageLoading    = true;
 		await InvokeAsync(StateHasChanged);
 		await Search();
 	}
 
 	private async Task GoToNextPage()
 	{
-		if (videoPage is null || IsLastPage || isPageLoading) return;
+		if (_videoPage is null || IsLastPage || _isPageLoading) return;
 		_isPageNavigation = true;
-		PageNumber        = videoPage.CurrentPage + 1;
-		isPageLoading     = true;
+		PageNumber        = _videoPage.CurrentPage + 1;
+        _isPageLoading    = true;
 		await InvokeAsync(StateHasChanged);
 		await Search();
 	}
 
-	/// <summary>
-	/// Executes a call to the database to retrieve videos and captions matching the filters specified by the user.
-	/// </summary>
 	private async Task Search()
 	{
-		Log.Debug("Search Button was clicked");
-
-		// normalize sort direction from checkbox
 		SortDirection = IsAscending ? "asc" : "desc";
 
-		// reset to first page on new searches (not when navigating pages)
 		if (!_isPageNavigation)
 			PageNumber = 1;
 
-		// build the query to use in the GET request
 		var uri = new UriBuilder(Navigation.BaseUri) { Port = -1 };
 
-		var query = HttpUtility.ParseQueryString(string.Empty);
-		query["keywords"] = Keywords ?? string.Empty;
+		var queryParams = new Dictionary<string, string?>
+		{
+			["keywords"]     = Keywords ?? string.Empty,
+			["publishFrom"]  = PublishedFromYearInt.ToString(),
+			["publishTo"]    = PublishedToYearInt.ToString(),
+			["durationMin"]  = _durationValue.ToString(),
+			["durationMax"]  = _durationUpperValue.ToString(),
+			["page"]         = PageNumber.ToString(),
+			["pageNumber"]   = PageNumber.ToString()
+		};
+		if (!string.IsNullOrEmpty(SortBy))        queryParams["sortBy"]        = SortBy;
+		if (!string.IsNullOrEmpty(SortDirection)) queryParams["sortDirection"] = SortDirection;
 
-		if (!PublishYear.IsNullOrEmpty())   query["publishYear"]   = PublishYear;
-		if (!Duration.IsNullOrEmpty())      query["duration"]      = Duration;
-		if (!SortBy.IsNullOrEmpty())        query["sortBy"]        = SortBy;
-		if (!SortDirection.IsNullOrEmpty()) query["sortDirection"] = SortDirection;
-
-		// include the page number
-		query["page"]       = PageNumber.ToString();
-		query["pageNumber"] = PageNumber.ToString();
-
-		uri.Query = query.ToString();
-		Log.Debug(uri.Query);
+		var qs = QueryString.Create(queryParams);
+		uri.Query = qs.HasValue ? qs.Value! : string.Empty;
 
 		try
 		{
 			var startTime = DateTime.Now;
 
-			// Only clear/disable the main search button and results for a new search (not for page navigation)
 			if (!_isPageNavigation)
-			{
 				DisableSearchButton();
-			}
-
-			//var client = Http.CreateClient("api");
-			//Log.Information(client.BaseAddress?.AbsoluteUri ?? "");
 
 			var response = await Http.GetAsync($"api/videos{uri.Query}");
 
 			if (response.IsSuccessStatusCode)
 			{
 				var responseContent = await response.Content.ReadAsStringAsync();
-				videoPage = JsonConvert.DeserializeObject<VideoPage>(responseContent);
+				_videoPage = JsonConvert.DeserializeObject<VideoPage>(responseContent);
 
-				// sync our page number with backend response
-				if (videoPage is not null && videoPage.CurrentPage > 0)
-					PageNumber = videoPage.CurrentPage;
+				if (_videoPage is not null && _videoPage.CurrentPage > 0)
+					PageNumber = _videoPage.CurrentPage;
 
-				// update the UI with the search results (message still updates for both flows)
-				var endTime     = DateTime.Now;
-				var elapsedTime = endTime - startTime;
-				searchResultsMessage = $"Found {videoPage?.VideoCount} videos containing '{Keywords}' in {elapsedTime:s\\.ff} seconds";
-				Log.Information($"{searchResultsMessage}");
+				var elapsed = DateTime.Now - startTime;
+				_searchResultsMessage = $"Found {_videoPage?.VideoCount} videos containing '{Keywords}' in {elapsed:s\\.ff} seconds";
 
 				if (!_isPageNavigation)
-				{
 					EnableSearchButton();
-				}
 				else
-				{
-					// For page navigation, just re-render (spinner will disappear via isPageLoading=false in finally)
 					await InvokeAsync(StateHasChanged);
-				}
 			}
 			else
 			{
-				searchResultsMessage = "Something went wrong. If this problem persists, try again later or <a href=\"mailto:admin@starchives.org\">contact me</a>.";
-				Log.Warning("Error: " + response.ReasonPhrase);
+				_searchResultsMessage = "Something went wrong. If this problem persists, try again later or <a href=\"mailto:admin@starchives.org\">contact me</a>.";
 			}
 		}
-		catch (HttpRequestException ex)
+		catch (HttpRequestException)
 		{
-			searchResultsMessage = "Something went wrong. If this problem persists, try again later or <a href=\"mailto:admin@starchives.org\">contact me</a>.";
-			Log.Error(ex, "Exception: " + ex.Message);
+			_searchResultsMessage = "Something went wrong. If this problem persists, try again later or <a href=\"mailto:admin@starchives.org\">contact me</a>.";
 		}
 		finally
-		{
-			_isPageNavigation = false;
-			isPageLoading     = false; // hide navbar spinner
+        {
+            _isPageNavigation = false;
+			_isPageLoading    = false;
 			await InvokeAsync(StateHasChanged);
 		}
 	}
 
 	private void DisableSearchButton()
 	{
-		// For new searches, clear current results and disable button
-		videoPage            = null;
-		searchResultsMessage = string.Empty;
-		isSearchDisabled     = true;
-		searchButtonLabel    = "Searching";
+		_videoPage            = null;
+		_searchResultsMessage = string.Empty;
+		_isSearchDisabled     = true;
+		_searchButtonLabel    = "Searching";
 	}
 
 	private void EnableSearchButton()
 	{
-		isSearchDisabled  = false;
-		searchButtonLabel = "Search Starchives";
+		_isSearchDisabled  = false;
+		_searchButtonLabel = "Search Starchives";
 		InvokeAsync(StateHasChanged);
 	}
 
 	public class VideoPage
 	{
 		public int         CurrentPage { get; set; }
-		public int         PageSize    { get; set; }
 		public int         VideoCount  { get; set; }
 		public int         PageCount   { get; set; }
 		public List<Video> Data        { get; set; }
-		public string      Keywords    { get; set; }
 	}
 }

@@ -262,3 +262,28 @@ main a:focus {
 .heading-sm-2 {
     color: rgb(180, 187, 255);
 }
+
+/* Override Bootstrap form-range for MudBlazor sliders */
+.mud-slider,
+.mud-range-slider {
+    /* Reset any conflicting Bootstrap form-range rules */
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent !important;
+}
+
+.mud-slider *,
+.mud-range-slider * {
+    box-sizing: border-box;
+}
+
+.bs-text {
+    font-family: 'Inconsolata', monospace !important;
+    font-size: 0.875rem !important; /* small */
+    font-weight: 300 !important;
+    line-height: 1 !important;
+    color: #6c757d !important; /* text-secondary */
+    margin-top: 0.25rem !important;
+    white-space: nowrap !important;
+    display: inline-block !important;
+}

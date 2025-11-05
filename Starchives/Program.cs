@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
+using MudExtensions.Services;
 using Serilog;
 using Serilog.Events;
 using Starchives.Components;
@@ -44,7 +45,7 @@ public static class Program
 					 .WriteTo.Console(outputTemplate: logTemplate)
 					 .WriteTo.InMemoryLogSink(outputTemplate: logTemplate)
 					 .CreateLogger();
-
+	
 
 
 		try
@@ -190,8 +191,9 @@ public static class Program
 			return new HttpClient { BaseAddress = new Uri(nav.BaseUri) };
 		});
 
-		// services for MudBlazor
+		// services for MudBlazor and MudExtensions
 		builder.Services.AddMudServices();
+		builder.Services.AddMudExtensions();
 
 		Log.Information("Services loaded");
 	}
@@ -271,90 +273,204 @@ public static class Program
 
 
 		// gets a list of videos matching all valid query parameters included in the request
-		// TODO: original working endpoint
-		//app.MapGet("/api/videos", async (StarchivesContext db, HttpRequest request) =>
-		//{
-		//	var keywords      = request.Query["keywords"];
-		//	var publishYear   = request.Query["publishYear"];
-		//	var duration      = request.Query["duration"];
-		//	var sortBy        = request.Query["sortBy"];
-		//	var sortDirection = request.Query["sortDirection"];
-
-		//	var videos = await db.Videos
-		//						 .Where(video => db.Captions
-		//										   .Any(caption => caption.VideoId == video.VideoId && EF.Functions.Like(caption.Text.ToLower(), $"%{keywords}%")))
-		//						 .ToListAsync();
-
-		//	// TODO: paginate the results
-		//	var videoPages = new List<object>();
-
-
-
-		//	return Results.Ok(videoPages);
-		//});
-
-
-
-		// TODO: second pagination attempt
 		app.MapGet("/api/videos", async (StarchivesContext db, HttpRequest request) =>
 		{
-			var keywords      = request.Query["keywords"];
-			var publishYear   = request.Query["publishYear"];
-			var duration      = request.Query["duration"];
-			var sortBy        = request.Query["sortBy"];
-			var sortDirection = request.Query["sortDirection"];
-			var page          = int.TryParse(request.Query["page"],     out var parsedPage) ? parsedPage : 1;
-			var pageSize      = int.TryParse(request.Query["pageSize"], out var parsedPageSize) ? parsedPageSize : 10;
+			var keywords        = request.Query["keywords"].ToString();
+			var publishFromRaw  = request.Query["publishFrom"].ToString();
+			var publishToRaw    = request.Query["publishTo"].ToString();
+			var durationMinRaw  = request.Query["durationMin"].ToString();
+			var durationMaxRaw  = request.Query["durationMax"].ToString();
+			var sortBy          = request.Query["sortBy"].ToString();
+			var sortDirection   = request.Query["sortDirection"].ToString();
+			var page            = int.TryParse(request.Query["page"],     out var parsedPage) ? parsedPage : 1;
+			var pageSize        = int.TryParse(request.Query["pageSize"], out var parsedPageSize) ? parsedPageSize : 10;
 
-			// build the base query
+			// build the base query: filter by caption text match first
 			var videos = db.Videos
 						  .Where(video => db.Captions
-											.Any(caption => caption.VideoId == video.VideoId && EF.Functions.Like(caption.Text.ToLower(), $"%{keywords}%")));
+											.Any(caption => caption.VideoId == video.VideoId && EF.Functions.Like(caption.Text.ToLower(), $"%{keywords.ToLower()}%")));
 
-			// apply sorting
-			if (!string.IsNullOrEmpty(sortBy))
+			// apply published date range filter if provided (expected as years, e.g. 2024)
+			if (int.TryParse(publishFromRaw, out var publishFromYear))
 			{
-				videos = sortDirection == "desc"
-					? videos.OrderByDescending(video => EF.Property<object>(video, sortBy))
-					: videos.OrderBy(video => EF.Property<object>(video,   sortBy));
+				var fromDate = new DateTime(publishFromYear, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+				videos = videos.Where(v => v.PublishedAt >= fromDate);
+			}
+			if (int.TryParse(publishToRaw, out var publishToYear))
+			{
+				// include the whole year until the end of Dec 31
+				var toDate = new DateTime(publishToYear, 12, 31, 23, 59, 59, DateTimeKind.Utc);
+				videos = videos.Where(v => v.PublishedAt <= toDate);
 			}
 
-			// get the total count first (before applying Skip and Take)
-			var videoCount = await videos.CountAsync();
+			// Parse duration filter parameters (minutes)
+			var hasDurationFilter = int.TryParse(durationMinRaw, out var durationMin) || int.TryParse(durationMaxRaw, out var durationMax);
+			if (!int.TryParse(durationMinRaw, out durationMin)) durationMin = 0;
+			if (!int.TryParse(durationMaxRaw, out durationMax)) durationMax = 0;
 
-			// apply pagination
-			var paginatedData = await videos
-									  .Skip((page - 1) * pageSize)
-									  .Take(pageSize)
-									  .Select(video => new
-									  {
-										  video.VideoId,
-										  video.Title,
-										  video.PublishedAt,
-										  video.Duration,
-										  video.ViewCount,
-										  video.LikeCount,
-										  video.CommentCount,
-										  video.EmbedHtml,
-										  video.Captions
+			// If there's no duration filter, keep database-side pagination and sorting for efficiency
+			if (!hasDurationFilter)
+			{
+				// apply sorting
+				if (!string.IsNullOrEmpty(sortBy))
+				{
+					videos = sortDirection == "desc"
+						? videos.OrderByDescending(video => EF.Property<object>(video, sortBy))
+						: videos.OrderBy(video => EF.Property<object>(video,   sortBy));
+				}
 
-										  // Add other fields you need here
-									  })
-									  .ToListAsync();
+				// get the total count first (before applying Skip and Take)
+				var videoCount = await videos.CountAsync();
 
-			// prepare the response object with pagination info
-			var videoPage = new
+				// apply pagination
+				var paginatedData = await videos
+										  .Skip((page - 1) * pageSize)
+										  .Take(pageSize)
+										  .Select(video => new
+										  {
+											  video.VideoId,
+											  video.Title,
+											  video.PublishedAt,
+											  video.Duration,
+											  video.ViewCount,
+											  video.LikeCount,
+											  video.CommentCount,
+											  video.EmbedHtml,
+											  video.Captions
+										  })
+										  .ToListAsync();
+
+				// prepare the response object with pagination info
+				var videoPage = new
+				{
+					CurrentPage = page,
+					PageSize    = pageSize,
+					VideoCount  = videoCount,
+					PageCount   = (int)Math.Ceiling((double)videoCount / pageSize),
+					Data        = paginatedData,
+					Keywords    = keywords
+				};
+
+				return Results.Ok(videoPage);
+			}
+
+			// --- Duration filter present: need to evaluate ISO8601 durations in .NET (in-memory)
+			// Project required fields, bring them into memory, parse durations to minutes/seconds, then filter + sort + paginate
+			var projected = await videos
+								  .Select(video => new
+								  {
+									  video.VideoId,
+									  video.Title,
+									  video.PublishedAt,
+									  video.Duration,
+									  video.ViewCount,
+									  video.LikeCount,
+									  video.CommentCount,
+									  video.EmbedHtml,
+									  video.Captions
+								  })
+								  .ToListAsync();
+
+			// compute total seconds and minutes for each video
+			var withDurationNumbers = projected.Select(p =>
+			{
+				var totalSeconds = ParseIso8601DurationToTotalSeconds(p.Duration);
+				var minutes = totalSeconds / 60; // integer division => floor minutes
+				return new
+				{
+					p.VideoId,
+					p.Title,
+					p.PublishedAt,
+					p.Duration,
+					p.ViewCount,
+					p.LikeCount,
+					p.CommentCount,
+					p.EmbedHtml,
+					p.Captions,
+					Minutes = minutes,
+					TotalSeconds = totalSeconds
+				};
+			}).AsQueryable();
+
+			// apply duration range. UI uses 60 to mean "60+"
+			if (durationMax >= 60)
+			{
+				withDurationNumbers = withDurationNumbers.Where(p => p.Minutes >= durationMin);
+			}
+			else
+			{
+				withDurationNumbers = withDurationNumbers.Where(p => p.Minutes >= durationMin && p.Minutes <= durationMax);
+			}
+
+			// apply sorting in-memory (based on known sort keys)
+			if (!string.IsNullOrEmpty(sortBy))
+			{
+				withDurationNumbers = (sortBy, sortDirection?.ToLower()) switch
+				{
+					("PublishedAt", "desc") => withDurationNumbers.OrderByDescending(p => p.PublishedAt),
+					("PublishedAt", _)      => withDurationNumbers.OrderBy(p => p.PublishedAt),
+					("ViewCount", "desc")   => withDurationNumbers.OrderByDescending(p => p.ViewCount),
+					("ViewCount", _)        => withDurationNumbers.OrderBy(p => p.ViewCount),
+					("LikeCount", "desc")   => withDurationNumbers.OrderByDescending(p => p.LikeCount),
+					("LikeCount", _)        => withDurationNumbers.OrderBy(p => p.LikeCount),
+					// For Duration sorting, use total seconds so ordering includes seconds resolution
+					("Duration", "desc")    => withDurationNumbers.OrderByDescending(p => p.TotalSeconds),
+					("Duration", _)         => withDurationNumbers.OrderBy(p => p.TotalSeconds),
+					_                       => withDurationNumbers
+				};
+			}
+
+			var filteredList = withDurationNumbers.ToList();
+			var filteredCount = filteredList.Count;
+
+			var pageData = filteredList
+						   .Skip((page - 1) * pageSize)
+						   .Take(pageSize)
+						   .Select(p => new
+						   {
+							   p.VideoId,
+							   p.Title,
+							   p.PublishedAt,
+							   p.Duration,
+							   p.ViewCount,
+							   p.LikeCount,
+							   p.CommentCount,
+							   p.EmbedHtml,
+							   p.Captions
+						   })
+						   .ToList();
+
+			var resultPage = new
 			{
 				CurrentPage = page,
 				PageSize    = pageSize,
-				VideoCount  = videoCount,
-				PageCount   = (int)Math.Ceiling((double)videoCount / pageSize),
-				Data        = paginatedData,
-				Keywords    = keywords.ToString()
+				VideoCount  = filteredCount,
+				PageCount   = (int)Math.Ceiling((double)filteredCount / pageSize),
+				Data        = pageData,
+				Keywords    = keywords
 			};
 
-			return Results.Ok(videoPage);
+			return Results.Ok(resultPage);
 		});
+	}
+
+	/// <summary>
+	/// Parses an ISO 8601 duration (YouTube format like "PT15M33S" or "PT1H2M3S") to total whole seconds (floor).
+	/// Returns 0 on parse failure.
+	/// </summary>
+	private static int ParseIso8601DurationToTotalSeconds(string? isoDuration)
+	{
+		if (string.IsNullOrWhiteSpace(isoDuration)) return 0;
+		try
+		{
+			var ts = System.Xml.XmlConvert.ToTimeSpan(isoDuration);
+			return (int)Math.Floor(ts.TotalSeconds);
+		}
+		catch
+		{
+			// If parsing fails, fall back to 0 seconds to avoid crashes.
+			return 0;
+		}
 	}
 	#endregion
 }
