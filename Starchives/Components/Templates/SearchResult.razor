@@ -32,15 +32,40 @@
 		 aria-labelledby="header-@Video.VideoId">
 
 		<div id="body-@Video.VideoId" class="bg-dark accordion-body">
-			<!-- Video full width -->
-			<div id="video-container-@Video.VideoId" class="ratio ratio-16x9 w-100">
-				<iframe id="iframe-@Video.VideoId"
-						title="@Video.Title"
-						src="https://www.youtube.com/embed/@Video.VideoId?enablejsapi=1&rel=0&origin=@(Uri.EscapeDataString(Navigation.BaseUri.TrimEnd('/')))"
-						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-						referrerpolicy="strict-origin-when-cross-origin"
-						allowfullscreen
-						loading="lazy"></iframe>
+
+			<!-- Video + Stats side-by-side (stack on small screens) -->
+			<div class="row g-3 align-items-stretch">
+				<div class="col-12 col-lg-9">
+					<div id="video-container-@Video.VideoId" class="ratio ratio-16x9 w-100">
+						<iframe id="iframe-@Video.VideoId"
+								title="@Video.Title"
+								src="https://www.youtube.com/embed/@Video.VideoId?enablejsapi=1&rel=0&origin=@(Uri.EscapeDataString(Navigation.BaseUri.TrimEnd('/')))"
+								allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+								referrerpolicy="strict-origin-when-cross-origin"
+								allowfullscreen
+								loading="lazy"></iframe>
+					</div>
+				</div>
+
+				<aside class="col-12 col-lg-3 d-flex">
+					<div class="p-3 bg-dark border border-secondary rounded-2 h-100 w-100">
+						<div class="caption-text text-start mb-2">Video Stats</div>
+						<hr class="my-2 border-secondary" />
+						<dl class="row mb-0 small">
+							<dt class="col-6 caption-text fw-normal text-end">Duration:</dt>
+							<dd class="col-6 text-warning text-start">@FormatIsoDuration(Video.Duration)</dd>
+
+							<dt class="col-6 caption-text fw-normal text-end">Views:</dt>
+							<dd class="col-6 text-warning text-start">@FormatCount(Video.ViewCount)</dd>
+
+							<dt class="col-6 caption-text fw-normal text-end">Likes:</dt>
+							<dd class="col-6 text-warning text-start">@FormatCount(Video.LikeCount)</dd>
+
+							<dt class="col-6 caption-text fw-normal text-end">Comments:</dt>
+							<dd class="col-6 text-warning text-start">@FormatCount(Video.CommentCount)</dd>
+						</dl>
+					</div>
+				</aside>
 			</div>
 
 			<!-- Captions full width, scroll up to video height -->
@@ -146,6 +171,26 @@
 
 		return (MarkupString)highlighted;
 	}
+
+	private static string FormatIsoDuration(string? iso8601)
+	{
+		if (string.IsNullOrWhiteSpace(iso8601)) return string.Empty;
+		try
+		{
+			var ts = System.Xml.XmlConvert.ToTimeSpan(iso8601);
+			var hours = (int)ts.TotalHours;
+			return hours > 0
+				? $"{hours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+				: $"{ts.Minutes:D2}:{ts.Seconds:D2}";
+		}
+		catch
+		{
+			return iso8601; // fall back to raw value if parsing fails
+		}
+	}
+
+	private static string FormatCount(long value)
+		=> value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
