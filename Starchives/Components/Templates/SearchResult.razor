@@ -1,8 +1,10 @@
 ﻿@*
     This component represents a single accordion element and its contents in the video search results.
 *@
-
 @using Starchives.Models
+@using System.Text.RegularExpressions
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
 
 <div id="@Video.VideoId" class="bg-dark pt-3 accordion-item">
 
@@ -30,49 +32,43 @@
 		 aria-labelledby="header-@Video.VideoId">
 
 		<div id="body-@Video.VideoId" class="bg-dark accordion-body">
-			<div class="d-flex justify-content-center">
-				<div id="player-@Video.VideoId" class="me-3">
-					@* @((MarkupString)Video.EmbedHtml) *@
-
-					<iframe width="640" height="360" src="//www.youtube.com/embed/@Video.VideoId" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-				</div>
-
-				<div id="info-@Video.VideoId" class="text-start ">
-					<p class="divider stats-labels">
-						Video Stats
-					</p>
-					<hr class="divider">
-
-					<div class="d-flex">
-						<div class="pe-2 text-end stats-labels">
-							Duration:
-							<br>
-							Views:
-							<br>
-							Likes:
-							<br>
-							Comments:
-						</div>
-						<div>
-							<span class="stats">@Video.Duration</span>
-							<br>
-							<span class="stats">@Video.ViewCount</span>
-							<br>
-							<span class="stats">@Video.LikeCount</span>
-							<br>
-							<span class="stats">@Video.CommentCount</span>
-						</div>
-					</div>
-
-				</div>
+			<!-- Video full width -->
+			<div id="video-container-@Video.VideoId" class="ratio ratio-16x9 w-100">
+				<iframe id="iframe-@Video.VideoId"
+						title="@Video.Title"
+						src="https://www.youtube.com/embed/@Video.VideoId?enablejsapi=1&rel=0&origin=@(Uri.EscapeDataString(Navigation.BaseUri.TrimEnd('/')))"
+						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+						referrerpolicy="strict-origin-when-cross-origin"
+						allowfullscreen
+						loading="lazy"></iframe>
 			</div>
 
-			<div id="timestamps-@Video.VideoId" class="d-flex flex-column">
-				@* TODO - enumerate timestamped results here *@
-				
-				@foreach (var caption in Video.Captions.Where(c => c.Text.Contains(Keywords)))
+			<!-- Captions full width, scroll up to video height -->
+			<div id="caption-window-@Video.VideoId" class="caption-window mt-3">
+				@if (FilteredCaptions.Any())
 				{
-					<p class="stats-labels">@caption.Text</p>
+					foreach (var c in FilteredCaptions.OrderBy(c => c.Offset))
+					{
+						var seconds = Math.Max(0, (int)c.Offset.TotalSeconds);
+						var display = string.IsNullOrWhiteSpace(Keywords)
+							? c.Text ?? string.Empty
+							: BuildCaptionContext(c); // prev — current — next
+
+						<div class="caption-line d-flex align-items-center text-start">
+							<button class="btn btn-sm btn-outline-light timestamp-btn py-0 px-2 me-2"
+									@onclick="() => SeekToAsync(seconds)">
+								@FormatTime(seconds)
+							</button>
+							<span class="mx-2 text-secondary" aria-hidden="true">—</span>
+							<div class="caption-text flex-grow-1">
+								@RenderCaptionText(display)
+							</div>
+						</div>
+					}
+				}
+				else
+				{
+					<p class="text-muted mb-0">No matching captions.</p>
 				}
 			</div>
 		</div>
@@ -81,11 +77,85 @@
 </div>
 
 @code {
-	[Parameter]
-	public required Video Video { get; set; }
-
-	[Parameter]
-	public required string Keywords { get; set; }
+	[Parameter] public required Video Video { get; set; }
+	[Parameter] public required string Keywords { get; set; }
 
 	public bool Expand = false;
+	private bool _syncedRegistered;
+	private List<Caption> _orderedCaptions = new();
+
+	private IEnumerable<Caption> FilteredCaptions =>
+		string.IsNullOrWhiteSpace(Keywords)
+			? Video.Captions
+			: Video.Captions.Where(c => c.Text?.Contains(Keywords, StringComparison.OrdinalIgnoreCase) == true);
+
+	protected override void OnParametersSet()
+	{
+		// Keep an ordered list for quick prev/next lookups
+		_orderedCaptions = Video.Captions
+			.OrderBy(c => c.Offset)
+			.ToList();
+	}
+
+	private ValueTask SeekToAsync(int seconds)
+		=> JS.InvokeVoidAsync("starchivesSeekTo", Video.VideoId, seconds);
+
+	private static string FormatTime(int totalSeconds)
+	{
+		var ts = TimeSpan.FromSeconds(totalSeconds);
+		return ts.Hours > 0
+			? $"{ts.Hours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+			: $"{ts.Minutes}:{ts.Seconds:D2}";
+	}
+
+	// Build: previous — current — next (only include neighbors that exist)
+	private string BuildCaptionContext(Caption current)
+	{
+		const string Sep = " — ";
+		var idx = _orderedCaptions.FindIndex(x => ReferenceEquals(x, current) || x.CaptionId == current.CaptionId);
+		if (idx < 0) return current.Text ?? string.Empty;
+
+		string? prev = idx > 0 ? _orderedCaptions[idx - 1].Text : null;
+		string? next = idx < _orderedCaptions.Count - 1 ? _orderedCaptions[idx + 1].Text : null;
+
+		var parts = new List<string>(3);
+		if (!string.IsNullOrWhiteSpace(prev)) parts.Add(prev!);
+		parts.Add(current.Text ?? string.Empty);
+		if (!string.IsNullOrWhiteSpace(next)) parts.Add(next!);
+
+		return string.Join(Sep, parts);
+	}
+
+	private MarkupString RenderCaptionText(string? text)
+	{
+		// HTML-encode content, then wrap in quotes so every result is enclosed.
+		var safe = System.Net.WebUtility.HtmlEncode(text ?? string.Empty);
+		var quoted = $"\"{safe}\"";
+
+		if (string.IsNullOrWhiteSpace(Keywords))
+			return (MarkupString)quoted;
+
+		// Highlight keywords inside the quoted text
+		var pattern = Regex.Escape(Keywords);
+		var highlighted = Regex.Replace(
+			quoted,
+			pattern,
+			m => $"<mark class=\"caption-mark\">{m.Value}</mark>",
+			RegexOptions.IgnoreCase
+		);
+
+		return (MarkupString)highlighted;
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		// One-time: register collapse 'shown' handler for this accordion (delegated in JS)
+		if (!_syncedRegistered)
+		{
+			await JS.InvokeVoidAsync("starchivesRegisterCaptionSync", Video.VideoId);
+			_syncedRegistered = true;
+		}
+		// Also try to sync immediately (covers already-open or quickly toggled cases)
+		await JS.InvokeVoidAsync("starchivesSyncCaptionHeight", Video.VideoId);
+	}
 }

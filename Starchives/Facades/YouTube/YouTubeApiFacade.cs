@@ -8,7 +8,7 @@ using YoutubeExplode.Videos.ClosedCaptions;
 
 namespace Starchives.Facades.YouTube;
 
-public class YouTubeApiFacade(IConfiguration configuration) : IYouTubeApiFacade
+public class YouTubeApiFacade(IConfiguration configuration) : IVideoApiFacade
 {
 	#region Properties
 	/// <summary>
@@ -39,7 +39,7 @@ public class YouTubeApiFacade(IConfiguration configuration) : IYouTubeApiFacade
 
 
 
-	/// <inheritdoc cref="IYouTubeApiFacade.GetChannel"/>
+	/// <inheritdoc cref="IVideoApiFacade.GetChannel"/>
 	/// <remarks>This should always return only the RSI channel.</remarks>
 	public async Task<Channel>? GetChannel(YouTubeService youTubeService)
 	{
@@ -55,7 +55,7 @@ public class YouTubeApiFacade(IConfiguration configuration) : IYouTubeApiFacade
 
 
 
-	/// <inheritdoc cref="IYouTubeApiFacade.GetUploadIds"/>
+	/// <inheritdoc cref="IVideoApiFacade.GetUploadIds"/>
 	/// <remarks><paramref name="channel"/> should always be the RSI channel.</remarks>
 	public async Task<List<string>> GetUploadIds(YouTubeService youTubeService, Channel channel)
 	{

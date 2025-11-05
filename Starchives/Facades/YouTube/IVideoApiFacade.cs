@@ -2,14 +2,12 @@
 using Google.Apis.YouTube.v3.Data;
 using YoutubeExplode.Videos.ClosedCaptions;
 
-
-
 namespace Starchives.Facades.YouTube;
 
 /// <summary>
 /// Simplifies the access and usage of the YouTube Data API.
 /// </summary>
-public interface IYouTubeApiFacade
+public interface IVideoApiFacade
 {
 	/// <summary>
 	/// Gets authenticated access to the YouTube Data API.

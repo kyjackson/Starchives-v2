@@ -1,0 +1,29 @@
+.caption-window {
+    width: 100%;
+    /* Natural height when content is short; JS sets max-height to match video */
+    overflow-y: auto;
+    padding-right: 0.25rem;
+    color: #fff; /* ensure caption text is white */
+}
+
+.caption-line + .caption-line {
+    margin-top: 0.5rem;
+}
+
+.timestamp-btn {
+    white-space: nowrap;
+}
+
+.caption-text {
+    line-height: 1.25rem;
+    word-break: break-word;
+    color: #fff;
+}
+
+/* Apply to unscoped <mark> injected via MarkupString */
+::deep mark.caption-mark {
+    background: rgba(255, 100, 0, 0.25); /* more orange, more translucent */
+    color: #fff;
+    padding: 0 .15rem;
+    border-radius: 2px;
+}

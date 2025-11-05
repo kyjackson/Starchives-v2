@@ -1,10 +1,5 @@
 ﻿@page "/"
 
-@using Microsoft.AspNetCore.Components
-@using System.Diagnostics
-@using System.Net
-@using System.Net.Http
-@using System.Threading.Tasks
 @using System.Web
 @using Microsoft.IdentityModel.Tokens
 @using Newtonsoft.Json
@@ -14,14 +9,13 @@
 
 @rendermode InteractiveServer
 
-@inject IJSRuntime         JSRuntime
 @inject NavigationManager  Navigation
 @inject IHttpClientFactory HttpClientFactory
 
 <PageTitle>Starchives</PageTitle>
 
 @****************************************@
-@* Search Panel (Jumbotron)				*@
+@* Search Panel (Jumbotron)             *@
 @****************************************@
 <div id="caption-search-panel" class="searchContainer p-4 mb-4 text-white bg-dark rounded-3">
 
@@ -38,73 +32,76 @@
 
 				<div class="col-1 my-4">
 					<div class="form-check form-switch">
-						<input id="filterSwitch" class="form-check-input" type="checkbox" role="switch">
+						<input id="filterSwitch" class="form-check-input" type="checkbox" role="switch" @bind="FiltersEnabled">
 						<label class="form-check-label" for="filterSwitch">Filters</label>
 					</div>
 				</div>
 			</div>
 
-			@* Filter labels *@
-			<div class="filters row justify-content-center align-items-center">
-				<div class="col-2">
-					<span>Published:</span>
+			@if (FiltersEnabled)
+			{
+				@* Filter labels *@
+				<div class="row justify-content-center align-items-center">
+					<div class="col-2">
+						<span>Published:</span>
+					</div>
+
+					<div class="col-2">
+						<span>Duration:</span>
+					</div>
+
+					<div class="col-2">
+						<span>Order By:</span>
+					</div>
 				</div>
 
-				<div class="col-2">
-					<span>Duration:</span>
+				@* Filters *@
+				<div class="row justify-content-center align-items-center">
+					<div class="col-2">
+						<select id="publishDate" class="form-select text-center" aria-label="Published filter" @bind="PublishYear">
+							<option value="">Any time</option>
+							<option value="2022">2022</option>
+							<option value="2021">2021</option>
+							<option value="2020">2020</option>
+							<option value="2019">2019</option>
+							<option value="2018">2018</option>
+							<option value="2017">2017</option>
+							<option value="2016">2016</option>
+							<option value="2015">2015</option>
+							<option value="2014">2014</option>
+							<option value="2013">2013</option>
+							<option value="2012">2012</option>
+						</select>
+					</div>
+
+					<div class="col-2">
+						<select id="duration" class="form-select text-center" aria-label="Duration filter" @bind="Duration">
+							<option value="">Any duration</option>
+							<option value="1">> 60 min</option>
+							<option value="2">30 - 60 min</option>
+							<option value="3">15 - 30 min</option>
+							<option value="4">&lt; 15 min</option>
+						</select>
+					</div>
+
+					<div class="col-2">
+						<select id="orderBy" class="form-select text-center" aria-label="Order by" @bind="SortBy">
+							<option value="PublishedAt">Date</option>
+							<option value="ViewCount">Views</option>
+							<option value="LikeCount">Likes</option>
+							<option value="Duration">Duration</option>
+						</select>
+					</div>
 				</div>
 
-				<div class="col-2">
-					<span>Order By:</span>
+				@* Toggle order by ascending results *@
+				<div class="row justify-content-center align-items-center">
+					<div class="col-2 mt-4 form-check">
+						<input id="order" class="form-check-input mx-0" type="checkbox" @bind="IsAscending">
+						<label class="form-check-label" for="order">Ascending</label>
+					</div>
 				</div>
-			</div>
-
-			@* Filters *@
-			<div class="filters row justify-content-center align-items-center">
-				<div class="col-2">
-					<select id="publishDate" class="form-select text-center" aria-label="Default select example" @bind="PublishYear">
-						<option value="" selected>Any time</option>
-						<option value="2022">2022</option>
-						<option value="2021">2021</option>
-						<option value="2020">2020</option>
-						<option value="2019">2019</option>
-						<option value="2018">2018</option>
-						<option value="2017">2017</option>
-						<option value="2016">2016</option>
-						<option value="2015">2015</option>
-						<option value="2014">2014</option>
-						<option value="2013">2013</option>
-						<option value="2012">2012</option>
-					</select>
-				</div>
-
-				<div class="col-2">
-					<select id="duration" class="form-select text-center" aria-label="Default select example" @bind="Duration">
-						<option value="" selected>Any duration</option>
-						<option value="1">> 60 min</option>
-						<option value="2">30 - 60 min</option>
-						<option value="3">15 - 30 min</option>
-						<option value="4">&lt; 15 min</option>
-					</select>
-				</div>
-
-				<div class="col-2">
-					<select id="orderBy" class="form-select text-center" aria-label="Default select example" @bind="SortBy">
-						<option value="1" selected>Date</option>
-						<option value="2">Views</option>
-						<option value="3">Likes</option>
-						<option value="4">Duration</option>
-					</select>
-				</div>
-			</div>
-
-			@* Toggle order by descending results *@
-			<div class="filters row justify-content-center align-items-center">
-				<div class="col-2 mt-4 form-check">
-					<input id="order" class="form-check-input mx-0" type="checkbox" value="DESC" @bind="SortDirection">
-					<label class="form-check-label" for="order">Ascending</label>
-				</div>
-			</div>
+			}
 
 			@* Search Button *@
 			<button id="searchButton" class="btn btn-light btn-lg mt-4" type="submit" disabled="@isSearchDisabled">
@@ -123,14 +120,21 @@
 			
 			@if (!searchResultsMessage.IsNullOrEmpty())
 			{
-				<p id="resultHeader" class="mb-0 pt-4 text-center">@searchResultsMessage</p>
+				<p id="resultHeader" class="mb-0 pt-4 text-center">@((MarkupString)searchResultsMessage)</p>
 			}
 
 			@if (videoPage != null)
 			{
 				<div id="results" class="pt-4 d-flex flex-column justify-content-center">
 
-					<SearchResultsNavBar CurrentPage="@videoPage!.CurrentPage" TotalPages="@videoPage!.PageCount" />
+					<SearchResultsNavBar
+						CurrentPage="@videoPage!.CurrentPage"
+						TotalPages="@videoPage!.PageCount"
+						DisablePrevious="@IsFirstPage"
+						DisableNext="@IsLastPage"
+						IsLoading="@isPageLoading"
+						OnPrevious="GoToPreviousPage"
+						OnNext="GoToNextPage" />
 
 					<div id="resultsAccordion" class="mx-auto w-75 accordion accordion-flush">
 					@foreach (var result in videoPage!.Data)
@@ -226,6 +230,10 @@
 	private int    PageNumber    { get; set; } = 1;
 	private int    PageCount     { get; set; } = 1;
 
+	// UI state
+	private bool   FiltersEnabled     { get; set; } = false; // default hidden
+	private bool   IsAscending        { get; set; } = false; // default descending
+
 	private bool         isSearchDisabled      = false;
 	private bool         isLoadingIconDisabled = true;
 	private string       searchButtonLabel     = "Search Starchives";
@@ -235,113 +243,138 @@
 	private int          searchResultsCount    = 0;
 	private VideoPage?   videoPage;
 
+	// paging helpers
+	private bool _isPageNavigation = false;
+	private bool isPageLoading     = false; // new
+	private bool IsFirstPage => (videoPage?.CurrentPage ?? 1) <= 1;
+	private bool IsLastPage  => videoPage is not null && videoPage.CurrentPage >= videoPage.PageCount;
 
+	private async Task GoToPreviousPage()
+	{
+		if (videoPage is null || IsFirstPage || isPageLoading) return;
+		_isPageNavigation = true;
+		PageNumber        = videoPage.CurrentPage - 1;
+		isPageLoading     = true;
+		await InvokeAsync(StateHasChanged);
+		await Search();
+	}
+
+	private async Task GoToNextPage()
+	{
+		if (videoPage is null || IsLastPage || isPageLoading) return;
+		_isPageNavigation = true;
+		PageNumber        = videoPage.CurrentPage + 1;
+		isPageLoading     = true;
+		await InvokeAsync(StateHasChanged);
+		await Search();
+	}
 
 	/// <summary>
 	/// Executes a call to the database to retrieve videos and captions matching the filters specified by the user.
 	/// </summary>
-	/// <returns></returns>
 	private async Task Search()
 	{
 		Log.Debug("Search Button was clicked");
 
+		// normalize sort direction from checkbox
+		SortDirection = IsAscending ? "asc" : "desc";
+
+		// reset to first page on new searches (not when navigating pages)
+		if (!_isPageNavigation)
+			PageNumber = 1;
+
 		// build the query to use in the GET request
-		var uri = new UriBuilder(Navigation.BaseUri)
-		{
-			Port = -1
-		};
+		var uri = new UriBuilder(Navigation.BaseUri) { Port = -1 };
 
 		var query = HttpUtility.ParseQueryString(string.Empty);
-		query["keywords"] = Keywords;
-		if (!PublishYear.IsNullOrEmpty()) { query["publishYear"]     = PublishYear; }
-		if (!Duration.IsNullOrEmpty()) { query["duration"]           = Duration; }
-		if (!SortBy.IsNullOrEmpty()) { query["sortBy"]               = SortBy; }
-		if (!SortDirection.IsNullOrEmpty()) { query["sortDirection"] = SortDirection; }
+		query["keywords"] = Keywords ?? string.Empty;
+
+		if (!PublishYear.IsNullOrEmpty())   query["publishYear"]   = PublishYear;
+		if (!Duration.IsNullOrEmpty())      query["duration"]      = Duration;
+		if (!SortBy.IsNullOrEmpty())        query["sortBy"]        = SortBy;
+		if (!SortDirection.IsNullOrEmpty()) query["sortDirection"] = SortDirection;
+
+		// include the page number
+		query["page"]       = PageNumber.ToString();
+		query["pageNumber"] = PageNumber.ToString();
 
 		uri.Query = query.ToString();
 		Log.Debug(uri.Query);
 
-
-
 		try
 		{
 			var startTime = DateTime.Now;
-			DisableSearchButton();
+
+			// Only clear/disable the main search button and results for a new search (not for page navigation)
+			if (!_isPageNavigation)
+			{
+				DisableSearchButton();
+			}
 
 			var client = HttpClientFactory.CreateClient("api");
 			Log.Debug(client.BaseAddress?.AbsoluteUri ?? "");
 
-			// send GET request to the caption search API endpoint
 			var response = await client.GetAsync($"api/videos{uri.Query}");
 
 			if (response.IsSuccessStatusCode)
 			{
-				// on success, get the list of objects (videos) in the JSON response
-				//searchResults = await response.Content.ReadFromJsonAsync<List<object>>() ?? []; // TODO: original result working without pagination
 				var responseContent = await response.Content.ReadAsStringAsync();
 				videoPage = JsonConvert.DeserializeObject<VideoPage>(responseContent);
 
-				// update the UI with the search results
+				// sync our page number with backend response
+				if (videoPage is not null && videoPage.CurrentPage > 0)
+					PageNumber = videoPage.CurrentPage;
+
+				// update the UI with the search results (message still updates for both flows)
 				var endTime     = DateTime.Now;
 				var elapsedTime = endTime - startTime;
-				//searchResultsMessage = $"Found {searchResults.Count} videos containing '{Keywords}' in {elapsedTime:s\\.ff} seconds"; // TODO: original result working without pagination
 				searchResultsMessage = $"Found {videoPage?.VideoCount} videos containing '{Keywords}' in {elapsedTime:s\\.ff} seconds";
 				Log.Information($"{searchResultsMessage}");
 
-				EnableSearchButton();
+				if (!_isPageNavigation)
+				{
+					EnableSearchButton();
+				}
+				else
+				{
+					// For page navigation, just re-render (spinner will disappear via isPageLoading=false in finally)
+					await InvokeAsync(StateHasChanged);
+				}
 			}
 			else
 			{
-				// on failure, display generic failure message and log the reason the request failed
 				searchResultsMessage = "Something went wrong. If this problem persists, try again later or <a href=\"mailto:admin@starchives.org\">contact me</a>.";
 				Log.Warning("Error: " + response.ReasonPhrase);
 			}
 		}
 		catch (HttpRequestException ex)
 		{
-			// on non-request-related error, display generic failure message and log the exception
 			searchResultsMessage = "Something went wrong. If this problem persists, try again later or <a href=\"mailto:admin@starchives.org\">contact me</a>.";
 			Log.Error(ex, "Exception: " + ex.Message);
 		}
+		finally
+		{
+			_isPageNavigation = false;
+			isPageLoading     = false; // hide navbar spinner
+			await InvokeAsync(StateHasChanged);
+		}
 	}
-
-
 
 	private void DisableSearchButton()
 	{
-		// clear any current results and disable the search button to prevent additional queries while loading
+		// For new searches, clear current results and disable button
 		videoPage            = null;
 		searchResultsMessage = string.Empty;
 		isSearchDisabled     = true;
 		searchButtonLabel    = "Searching";
 	}
 
-
-
 	private void EnableSearchButton()
 	{
-		// re-enable search button after the search completes, then re-render the component
 		isSearchDisabled  = false;
 		searchButtonLabel = "Search Starchives";
-
-		InvokeAsync(StateHasChanged); // Trigger a re-render
+		InvokeAsync(StateHasChanged);
 	}
-
-
-
-
-	// handle execution of the page's old script using the JS runtime
-	protected override async Task OnAfterRenderAsync(bool firstRender)
-	{
-		await JSRuntime.InvokeVoidAsync("console.log", "OnAfterRenderAsync was called for Home.razor");
-
-		if (firstRender)
-		{
-			await JSRuntime.InvokeVoidAsync("initializeHomePage");
-		}
-	}
-
-
 
 	public class VideoPage
 	{

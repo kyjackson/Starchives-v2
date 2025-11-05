@@ -1,20 +1,10 @@
-using System.Diagnostics;
-using Starchives.Components;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
+using MudBlazor.Services;
 using Serilog;
+using Serilog.Events;
+using Starchives.Components;
 using Starchives.Data;
 using Starchives.Facades.YouTube;
-using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Build.Framework;
-using Serilog.Events;
-using Microsoft.AspNetCore.Components;
-using Starchives.Models;
-using MudBlazor.Services;
-
-
 
 namespace Starchives;
 
@@ -170,7 +160,7 @@ public static class Program
 		builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 		// services for custom logic
-		builder.Services.AddScoped<IYouTubeApiFacade, YouTubeApiFacade>();
+		builder.Services.AddScoped<IVideoApiFacade, YouTubeApiFacade>();
 		builder.Services.AddSingleton<SharedService>();
 
 		// services for the API controller

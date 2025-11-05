@@ -1,15 +1,15 @@
 ﻿@*
     This component represents the page navigation bar for the video search results.
 *@
-
 <div id="pageNavBar" class="mx-auto justify-content-end">
 	<nav aria-label="page-navigation">
 		<ul class="pagination">
-			<li id="previousPage" class="page-item">
+			<li id="previousPage" class="page-item @(DisablePrevious || IsLoading ? "disabled" : null)">
 				<button 
 					id="previousPageButton" 
 					class="page-link bg-dark bg-gradient" 
-					onclick="this.blur();" 
+					disabled="@(DisablePrevious || IsLoading)"
+					@onclick="OnPrevious"
 					aria-label="Previous">
 
 					<span aria-hidden="true">&laquo;</span>
@@ -17,14 +17,24 @@
 			</li>
 
 			<li id="currentPage" class="page-item">
-				<span id="currentPageText" class="page-link bg-dark bg-gradient">@CurrentPage of @TotalPages</span>
+				<span id="currentPageText" class="page-link bg-dark bg-gradient">
+					@if (IsLoading)
+					{
+						<span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>
+					}
+					else
+					{
+						@($"{CurrentPage} of {TotalPages}")
+					}
+				</span>
 			</li>
 
-			<li id="nextPage" class="page-item">
+			<li id="nextPage" class="page-item @(DisableNext || IsLoading ? "disabled" : null)">
 				<button 
 					id="nextPageButton" 
 					class="page-link bg-dark bg-gradient" 
-					onclick="this.blur();" 
+					disabled="@(DisableNext || IsLoading)"
+					@onclick="OnNext"
 					aria-label="Next">
 
 					<span aria-hidden="true">&raquo;</span>
@@ -35,9 +45,14 @@
 </div>
 
 @code {
-	[Parameter]
-	public int? CurrentPage { get; set; } = 1;
+	[Parameter] public int? CurrentPage { get; set; } = 1;
+	[Parameter] public int? TotalPages  { get; set; } = 1;
 
-	[Parameter]
-	public int? TotalPages { get; set; } = 1;
+	[Parameter] public EventCallback OnPrevious { get; set; }
+	[Parameter] public EventCallback OnNext     { get; set; }
+
+	[Parameter] public bool DisablePrevious { get; set; }
+	[Parameter] public bool DisableNext     { get; set; }
+
+	[Parameter] public bool IsLoading       { get; set; } // new
 }
