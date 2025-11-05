@@ -2,22 +2,19 @@
 @layout MainLayout
 @rendermode InteractiveServer
 
-@using Google.Apis.Services
-@using Google.Apis.YouTube.v3
 @using Starchives.Components.Layout
 @using Starchives.Components.Templates
 @using Starchives.Facades.YouTube
 @using Starchives.Models
 @using System.Diagnostics
-@using EFCore.BulkExtensions
 @using Microsoft.EntityFrameworkCore
 @using Serilog
 @using Caption = Starchives.Models.Caption
 
-@inject NavigationManager Navigation
-@inject Microsoft.Extensions.Options.IOptions<Keys> Options
+@inject NavigationManager      Navigation
 @inject Data.StarchivesContext DbContext
-@inject IYouTubeApiFacade YouTubeApiFacade
+@inject IYouTubeApiFacade      YouTubeApiFacade
+@inject IConfiguration         Configuration
 
 
 
@@ -102,17 +99,23 @@ else
 
 @code {
 
-	private bool _isAuthenticated = false;
-	private LoginModel _loginModel = new();
-	private string? _errorMessage;
+	private bool       _isAuthenticated = false;
+	private LoginModel _loginModel      = new();
+	private string?    _errorMessage;
+	private string?    _adminPassword;
+    private string?    _channelId;
+    private string?    _apiKey;
 
 
 
 	protected override void OnInitialized()
 	{
-		var adminPassword = Options.Value.AdminPassword;
+		// Read from global config (e.g., appsettings.json, appsettings.Development.json, or environment variables)
+		_adminPassword = Configuration["AdminPassword"];
+        _channelId     = Configuration["ChannelId"];
+        _apiKey        = Configuration["YouTubeApiKey"];
 
-		if (string.IsNullOrEmpty(adminPassword))
+		if (string.IsNullOrEmpty(_adminPassword))
 		{
 			_errorMessage = "Admin password is not set.";
 			return;
@@ -133,11 +136,11 @@ else
 	{
 		Debug.Print($"Password Entered: {_loginModel.Password}");
 
-		if (_loginModel.Password == Options.Value.AdminPassword)
+		if (_loginModel.Password == _adminPassword)
 		{
 			_isAuthenticated = true;
-			_errorMessage = string.Empty;
-		}
+            _errorMessage    = string.Empty;
+        }
 		else
 		{
 			_errorMessage = "Invalid password.";
@@ -155,48 +158,74 @@ else
 		var startTime = DateTime.Now;
 		Log.Information($"Started updating videos");
 
-		// 1. authenticate to the YouTube API
 		var youtubeService = YouTubeApiFacade.GetYouTubeService();
+		var rsiChannel     = await YouTubeApiFacade.GetChannel(youtubeService)!;
+		var rsiUploadIds   = await YouTubeApiFacade.GetUploadIds(youtubeService, rsiChannel);
+		var rsiUploads     = await YouTubeApiFacade.GetUploadDataByIds(youtubeService, rsiUploadIds);
 
-		// 2. get the RSI channel
-		var rsiChannel = await YouTubeApiFacade.GetChannel(youtubeService)!;
-
-		// 3. get all RSI channel upload IDs
-		var rsiUploadIds = await YouTubeApiFacade.GetUploadIds(youtubeService, rsiChannel);
-
-		// 4. get details of each video
-		var rsiUploads = await YouTubeApiFacade.GetUploadDataByIds(youtubeService, rsiUploadIds);
-
-		// 5. update existing videos and insert new videos
 		var videosToUpsert = new List<Video>();
 		foreach (var video in rsiUploads)
 		{
-			var dbVideo = new Video();
+			// Ensure UTC DateTime for timestamptz
+			var publishedOffset = video.Snippet.PublishedAtDateTimeOffset;
+			if (publishedOffset is null)
+			{
+				// Skip any unexpected nulls to avoid Unspecified/invalid writes
+				continue;
+			}
 
-			dbVideo.VideoId           = video.Id;
-			dbVideo.PublishedAt       = (DateTime)video.Snippet.PublishedAtDateTimeOffset?.DateTime!;
-			dbVideo.ChannelId         = Options.Value.ChannelId;
-			dbVideo.Title             = video.Snippet.Title;
-			dbVideo.Description       = video.Snippet.Description ?? "N/A";
-			dbVideo.Duration          = video.ContentDetails.Duration;
-			dbVideo.ViewCount         = (long?)video.Statistics.ViewCount    ?? 0;
-			dbVideo.LikeCount         = (long?)video.Statistics.LikeCount    ?? 0;
-			dbVideo.CommentCount      = (long?)video.Statistics.CommentCount ?? 0;
-			dbVideo.EmbedHtml         = video.Player.EmbedHtml               ?? "";
+			var dbVideo = new Video
+			{
+				VideoId      = video.Id,
+				PublishedAt  = publishedOffset.Value.UtcDateTime, // <- UTC, Kind=Utc
+				ChannelId    = _channelId,
+				Title        = video.Snippet.Title,
+				Description  = video.Snippet.Description ?? "N/A",
+				Duration     = video.ContentDetails.Duration,
+				ViewCount    = (long?)video.Statistics.ViewCount    ?? 0,
+				LikeCount    = (long?)video.Statistics.LikeCount    ?? 0,
+				CommentCount = (long?)video.Statistics.CommentCount ?? 0,
+				EmbedHtml    = video.Player.EmbedHtml               ?? ""
+			};
 
 			videosToUpsert.Add(dbVideo);
 		}
 
-		var bulkConfig = new BulkConfig
+		// Upsert using EF Core (no BulkExtensions)
+		var ids = videosToUpsert.Select(v => v.VideoId).ToList();
+
+		var existing = await DbContext.Videos
+			.Where(v => ids.Contains(v.VideoId))
+			.ToDictionaryAsync(v => v.VideoId);
+
+		var toAdd = new List<Video>();
+
+		foreach (var v in videosToUpsert)
 		{
-			PreserveInsertOrder = false,
-			UpdateByProperties  = [nameof(Video.VideoId)],
-		};
+			if (existing.TryGetValue(v.VideoId, out var ev))
+			{
+				ev.PublishedAt  = v.PublishedAt; // already UTC
+				ev.ChannelId    = v.ChannelId;
+				ev.Title        = v.Title;
+				ev.Description  = v.Description;
+				ev.Duration     = v.Duration;
+				ev.ViewCount    = v.ViewCount;
+				ev.LikeCount    = v.LikeCount;
+				ev.CommentCount = v.CommentCount;
+				ev.EmbedHtml    = v.EmbedHtml;
+			}
+			else
+			{
+				toAdd.Add(v);
+			}
+		}
 
-		await DbContext.BulkInsertOrUpdateAsync(videosToUpsert, bulkConfig);
+		if (toAdd.Count > 0)
+			await DbContext.Videos.AddRangeAsync(toAdd);
 
-		var endTime = DateTime.Now;
-		var elapsedTime = endTime - startTime;
+		await DbContext.SaveChangesAsync();
+
+		var elapsedTime = DateTime.Now - startTime;
 		Log.Information($"Finished updating videos (time elapsed: {elapsedTime:g})");
 	}
 
@@ -212,42 +241,62 @@ else
 		Log.Information($"Started updating captions");
 
 		var videosWithoutCaptions = await DbContext.Videos
-															.Where(video => !DbContext.Captions.Any(caption => caption.VideoId == video.VideoId))
-															.OrderBy(video => video.PublishedAt)
-															.ToListAsync();
+			.Where(video => !DbContext.Captions.Any(caption => caption.VideoId == video.VideoId))
+			.OrderBy(video => video.PublishedAt)
+			.ToListAsync();
 
-		var captionsToInsert = new List<Caption>();
-		foreach (var video in videosWithoutCaptions)
-		{
-			var captionTrack = await YouTubeApiFacade.GetCaptionTrackByVideoId(video.VideoId);
+		// Insert captions in batches for reasonable performance without BulkExtensions
+		const int batchSize = 1000;
+		var buffer = new List<Caption>(batchSize);
 
-			if (captionTrack == null)
+		var prevAutoDetect = DbContext.ChangeTracker.AutoDetectChangesEnabled;
+		DbContext.ChangeTracker.AutoDetectChangesEnabled = false;
+		try
+        {
+            var index = 0;
+			foreach (var video in videosWithoutCaptions)
 			{
-				continue;
+				var captionTrack = await YouTubeApiFacade.GetCaptionTrackByVideoId(video.VideoId);
+				if (captionTrack is null) continue;
+
+				foreach (var c in captionTrack.Captions)
+				{
+					if (c.Text == "\n") continue;
+
+					buffer.Add(new Caption
+					{
+						VideoId  = video.VideoId,
+						Duration = c.Duration,
+						Offset   = c.Offset,
+						Text     = c.Text
+					});
+
+					if (buffer.Count >= batchSize)
+					{
+						await DbContext.Captions.AddRangeAsync(buffer);
+						await DbContext.SaveChangesAsync();
+						buffer.Clear();
+					}
+				}
+
+                index++;
+
+                Log.Information($"Caption tracks processed: {index}/{videosWithoutCaptions.Count}");
 			}
 
-			// TODO: override video.CaptionsAvailable with 'true' regardless of its current value because a caption track has been discovered at this point
-
-			foreach (var caption in captionTrack.Captions)
+			if (buffer.Count > 0)
 			{
-				if (caption.Text != "\n")
-				{
-					var dbCaption = new Caption();
-
-					dbCaption.VideoId  = video.VideoId;
-					dbCaption.Duration = caption.Duration;
-					dbCaption.Offset   = caption.Offset;
-					dbCaption.Text     = caption.Text;
-
-					captionsToInsert.Add(dbCaption);
-				}
+				await DbContext.Captions.AddRangeAsync(buffer);
+				await DbContext.SaveChangesAsync();
+				buffer.Clear();
 			}
 		}
+		finally
+		{
+			DbContext.ChangeTracker.AutoDetectChangesEnabled = prevAutoDetect;
+		}
 
-		await DbContext.BulkInsertAsync(captionsToInsert);
-
-		var endTime = DateTime.Now;
-		var elapsedTime = endTime - startTime;
+		var elapsedTime = DateTime.Now - startTime;
 		Log.Information($"Finished updating captions (time elapsed: {elapsedTime:g})");
 	}
 

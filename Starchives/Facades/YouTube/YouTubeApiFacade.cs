@@ -1,153 +1,156 @@
-﻿using System.Diagnostics;
-using Google.Apis.Services;
+﻿using Google.Apis.Services;
 using Google.Apis.YouTube.v3;
 using Google.Apis.YouTube.v3.Data;
-using Microsoft.Extensions.Options;
+
 using Serilog;
-using Starchives;
 using YoutubeExplode;
 using YoutubeExplode.Videos.ClosedCaptions;
 
+namespace Starchives.Facades.YouTube;
 
-
-namespace Starchives.Facades.YouTube
+public class YouTubeApiFacade(IConfiguration configuration) : IYouTubeApiFacade
 {
-	public class YouTubeApiFacade(IOptions<Keys> options) : IYouTubeApiFacade
+	#region Properties
+	/// <summary>
+	/// YouTube API key resolved from global configuration.
+	/// </summary>
+	private readonly string? _youTubeApiKey = configuration["YouTubeApiKey"] ?? configuration["Keys:YouTubeApiKey"];
+
+	/// <summary>
+	/// The channel ID resolved from global configuration.
+	/// </summary>
+	private readonly string? _channelId = configuration["ChannelId"];
+	#endregion
+
+
+
+	#region Methods
+	public YouTubeService GetYouTubeService()
 	{
-		#region Properties
-		/// <summary>
-		/// Options initialized by the IOptions service in Program.cs.
-		/// </summary>
-		private IOptions<Keys> Options { get; } = options;
-		#endregion
+		if (string.IsNullOrWhiteSpace(_youTubeApiKey))
+			throw new InvalidOperationException("YouTube API key is not configured. Set 'YouTubeApiKey' (or 'Keys:YouTubeApiKey') in configuration or environment variables.");
 
-
-
-		#region Methods
-		public YouTubeService GetYouTubeService()
+		return new YouTubeService(new BaseClientService.Initializer()
 		{
-			return new YouTubeService(new BaseClientService.Initializer()
+			ApiKey          = _youTubeApiKey,
+			ApplicationName = this.GetType().ToString()
+		});
+	}
+
+
+
+	/// <inheritdoc cref="IYouTubeApiFacade.GetChannel"/>
+	/// <remarks>This should always return only the RSI channel.</remarks>
+	public async Task<Channel>? GetChannel(YouTubeService youTubeService)
+	{
+		var getRsiChannel = youTubeService.Channels.List("contentDetails");
+		getRsiChannel.Id = _channelId;
+
+		var channelListResponse = await getRsiChannel.ExecuteAsync();
+		var rsiChannel          = channelListResponse.Items[0];
+		Log.Information($"Retrieved channel ID '{rsiChannel.Id}'");
+
+		return rsiChannel;
+	}
+
+
+
+	/// <inheritdoc cref="IYouTubeApiFacade.GetUploadIds"/>
+	/// <remarks><paramref name="channel"/> should always be the RSI channel.</remarks>
+	public async Task<List<string>> GetUploadIds(YouTubeService youTubeService, Channel channel)
+	{
+		var startTime = DateTime.Now;
+
+		// this should be the playlist that contains all uploads to the channel
+		var rsiUploadsPlaylistId       = channel.ContentDetails.RelatedPlaylists.Uploads;
+		var nextPageTokenPlaylistItems = "";
+		var videoPages                 = new List<string>();
+		var videoCount                 = 0;
+
+		// results are paginated, so we need to loop through all pages
+		while (nextPageTokenPlaylistItems != null)
+		{
+			// this request only supports up to 50 results max
+			var getRsiUploads = youTubeService.PlaylistItems.List("contentDetails");
+			getRsiUploads.PlaylistId = rsiUploadsPlaylistId;
+			getRsiUploads.MaxResults = 50;
+			getRsiUploads.PageToken  = nextPageTokenPlaylistItems;
+
+			var playlistItemsListResponse = await getRsiUploads.ExecuteAsync();
+			var videoPage                 = new List<string>();
+
+			foreach (var playlistItem in playlistItemsListResponse.Items)
 			{
-				ApiKey          = Options.Value.YouTubeApiKey,
-				ApplicationName = this.GetType().ToString()
-			});
-		}
-
-
-
-		/// <inheritdoc cref="IYouTubeApiFacade.GetChannel"/>
-		/// <remarks>This should always return only the RSI channel.</remarks>
-		public async Task<Channel>? GetChannel(YouTubeService youTubeService)
-		{
-			var getRsiChannel = youTubeService.Channels.List("contentDetails");
-			getRsiChannel.Id = Options.Value.ChannelId;
-
-			var channelListResponse = await getRsiChannel.ExecuteAsync();
-			var rsiChannel          = channelListResponse.Items[0];
-			Log.Information($"Retrieved channel ID '{rsiChannel.Id}'");
-
-			return rsiChannel;
-		}
-
-
-
-		/// <inheritdoc cref="IYouTubeApiFacade.GetUploadIds"/>
-		/// <remarks><paramref name="channel"/> should always be the RSI channel.</remarks>
-		public async Task<List<string>> GetUploadIds(YouTubeService youTubeService, Channel channel)
-		{
-			var startTime = DateTime.Now;
-
-			// this should be the playlist that contains all uploads to the channel
-			var rsiUploadsPlaylistId       = channel.ContentDetails.RelatedPlaylists.Uploads;
-			var nextPageTokenPlaylistItems = "";
-			var videoPages                 = new List<string>();
-			var videoCount                 = 0;
-
-			// results are paginated, so we need to loop through all pages
-			while (nextPageTokenPlaylistItems != null)
-			{
-				// this request only supports up to 50 results max
-				var getRsiUploads = youTubeService.PlaylistItems.List("contentDetails");
-				getRsiUploads.PlaylistId = rsiUploadsPlaylistId;
-				getRsiUploads.MaxResults = 50;
-				getRsiUploads.PageToken  = nextPageTokenPlaylistItems;
-
-				var playlistItemsListResponse = await getRsiUploads.ExecuteAsync();
-				var videoPage                 = new List<string>();
-
-				foreach (var playlistItem in playlistItemsListResponse.Items)
-				{
-					videoCount++;
-					videoPage.Add(playlistItem.ContentDetails.VideoId);
-				}
-
-				var videoPageString = string.Join(',', videoPage);
-				videoPages.Add(videoPageString);
-
-				nextPageTokenPlaylistItems = playlistItemsListResponse.NextPageToken;
+				videoCount++;
+				videoPage.Add(playlistItem.ContentDetails.VideoId);
 			}
 
-			var endTime = DateTime.Now;
-			var elapsedTime = endTime - startTime;
-			Log.Information($"Retrieved {videoCount} video IDs from RSI channel (time elapsed: {elapsedTime:g})");
+			var videoPageString = string.Join(',', videoPage);
+			videoPages.Add(videoPageString);
 
-			return videoPages;
+			nextPageTokenPlaylistItems = playlistItemsListResponse.NextPageToken;
 		}
 
+		var endTime     = DateTime.Now;
+		var elapsedTime = endTime - startTime;
+		Log.Information($"Retrieved {videoCount} video IDs from RSI channel (time elapsed: {elapsedTime:g})");
+
+		return videoPages;
+	}
 
 
-		public async Task<List<Video>> GetUploadDataByIds(YouTubeService youTubeService, List<string> videoPages)
+
+	public async Task<List<Video>> GetUploadDataByIds(YouTubeService youTubeService, List<string> videoPages)
+	{
+		var startTime = DateTime.Now;
+		var videoList = new List<Video>();
+
+		foreach (var videoPage in videoPages)
 		{
-			var startTime = DateTime.Now;
-			var videoList = new List<Video>();
+			// this request only supports up to 50 results max
+			var getAllVideoData = youTubeService.Videos.List("snippet,contentDetails,statistics,player");
+			getAllVideoData.Id         = videoPage;
+			getAllVideoData.MaxResults = 50;
 
-			foreach (var videoPage in videoPages)
-			{
-				// this request only supports up to 50 results max
-				var getAllVideoData = youTubeService.Videos.List("snippet,contentDetails,statistics,player");
-				getAllVideoData.Id         = videoPage;
-				getAllVideoData.MaxResults = 50;
-
-				var videoListResponse = await getAllVideoData.ExecuteAsync();
-				videoList.AddRange(videoListResponse.Items);
-			}
-
-			var endTime     = DateTime.Now;
-			var elapsedTime = endTime - startTime;
-			Log.Information($"Retrieved data for {videoList.Count} videos from RSI channel (time elapsed: {elapsedTime:g})");
-
-			return videoList;
+			var videoListResponse = await getAllVideoData.ExecuteAsync();
+			videoList.AddRange(videoListResponse.Items);
 		}
 
+		var endTime     = DateTime.Now;
+		var elapsedTime = endTime - startTime;
+		Log.Information($"Retrieved data for {videoList.Count} videos from RSI channel (time elapsed: {elapsedTime:g})");
+
+		return videoList;
+	}
 
 
-		public async Task<ClosedCaptionTrack?> GetCaptionTrackByVideoId(string videoId)
+
+	public async Task<ClosedCaptionTrack?> GetCaptionTrackByVideoId(string videoId)
+	{
+		var youTubeService = new YoutubeClient();
+		var videoUrl       = $"https://www.youtube.com/watch?v={videoId}";
+
+		try 
 		{
-			var youTubeService = new YoutubeClient();
-			var videoUrl       = $"https://www.youtube.com/watch?v={videoId}";
+			var trackManifest = await youTubeService.Videos.ClosedCaptions.GetManifestAsync(videoUrl);
+			var trackList     = trackManifest.Tracks;
+			var trackInfo     = trackManifest.TryGetByLanguage("en");
 
-			try 
+			if (trackInfo == null)
 			{
-				var trackManifest = await youTubeService.Videos.ClosedCaptions.GetManifestAsync(videoUrl);
-				var trackList     = trackManifest.Tracks;
-				var trackInfo     = trackManifest.TryGetByLanguage("en");
-
-				if (trackInfo == null)
-				{
-					return null;
-				}
-
-				// get the full caption track for the video if it exists
-				var track = await youTubeService.Videos.ClosedCaptions.GetAsync(trackInfo);
-
-				return track;
-			}
-			catch (Exception ex)
-			{
-				Log.Error(ex, $"Error occurred while attempting to get caption track for video ID {videoId}: {ex.Message}");
 				return null;
 			}
+
+			// get the full caption track for the video if it exists
+			var track = await youTubeService.Videos.ClosedCaptions.GetAsync(trackInfo);
+
+			return track;
 		}
-		#endregion
+		catch (Exception ex)
+		{
+			Log.Error(ex, $"Error occurred while attempting to get caption track for video ID {videoId}: {ex.Message}");
+			return null;
+		}
 	}
+	#endregion
 }
