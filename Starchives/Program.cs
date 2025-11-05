@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 using Serilog;
@@ -178,6 +179,13 @@ public static class Program
 		// services for server-side component rendering
 		builder.Services.AddRazorComponents()
 			   .AddInteractiveServerComponents();
+
+		// allows navigation with relative URLs
+		builder.Services.AddScoped(sp =>
+		{
+			var nav = sp.GetRequiredService<NavigationManager>();
+			return new HttpClient { BaseAddress = new Uri(nav.BaseUri) };
+		});
 
 		// services for MudBlazor
 		builder.Services.AddMudServices();
