@@ -221,7 +221,56 @@ footer p {
     /* font-family: 'Zen Dots', sans-serif; */
 }
 
+/* Footer logo: fixed visual size and prevent parent flex shrinking */
+.logo {
+    /* Ensure the logo column doesn't shrink when the footer is laid out with flex */
+    flex: 0 0 auto; /* do not grow, do not shrink, width determined by content */
+    display: flex;
+    align-items: start;
+    justify-content: center;
+}
 
+/* Strongly override .img-fluid behavior so image keeps the requested pixel size */
+.footer-logo {
+    width: 128px;
+    height: 128px;
+    max-width: none !important; /* override Bootstrap .img-fluid */
+    object-fit: contain;
+    display: block;
+}
+
+/* Medium screens — slightly smaller */
+@media (max-width: 1199px) {
+    .footer-logo {
+        width: 128px;
+        height: 128px;
+    }
+}
+
+/* Small screens — compact but readable */
+@media (max-width: 767px) {
+    .footer-logo {
+        width: 96px;
+        height: 96px;
+    }
+
+    /* On small screens make footer stack so layout doesn't break */
+    footer.d-flex {
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .links, .disclaimers {
+        width: 100%;
+        margin-right: 0;
+    }
+
+    .logo {
+        width: 100%;
+        justify-content: flex-end;
+        padding-right: 0.5rem;
+    }
+}
 
 /*
  * Misc styling shared by all pages
