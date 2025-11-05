@@ -29,7 +29,7 @@ public static class Program
 
 
 
-	#region Functions
+	#region Methods
 	/// <summary>
 	/// The main method of the web app. The web app begins and ends with this method.
 	/// </summary>
@@ -98,13 +98,51 @@ public static class Program
 	/// <param name="builder">The web app builder to configure.</param>
 	private static void ConfigureVariables(this WebApplicationBuilder builder)
 	{
+		// In Development, load environment variables from the local .env file (not committed)
+		if (builder.Environment.IsDevelopment())
+		{
+			var envPath = Path.Combine(builder.Environment.ContentRootPath, ".env");
+			LoadEnvFile(envPath);
+		}
+
+		// Also load process/user/machine environment variables
 		builder.Configuration.AddEnvironmentVariables();
 
-		// retrieve the connection string from the environment variables
-		// with Docker Compose, all special env vars are set from .env file
-		_connectionString = Environment.GetEnvironmentVariable("Keys__ConnectionString");
+		// Read the connection string from env (populated by .env locally)
+		_connectionString = Environment.GetEnvironmentVariable("DbConnectionStringPostgres");
+
+		if (string.IsNullOrWhiteSpace(_connectionString))
+			throw new InvalidOperationException("Connection string for Starchives database not found.");
 
 		Log.Information("Configurations loaded");
+	}
+
+
+
+	/// <summary>
+	/// Loads environment variables from a file containing key-value pairs in the format KEY=VALUE.
+	/// </summary>
+	/// <param name="filePath">The path to the environment file to load. The file must exist and contain lines in the format KEY=VALUE. Lines starting with '#' or blank lines are ignored.</param>
+	private static void LoadEnvFile(string filePath)
+	{
+		if (!File.Exists(filePath)) return;
+
+		foreach (var raw in File.ReadAllLines(filePath))
+		{
+			var line = raw.Trim();
+			if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#')) continue;
+
+			var idx = line.IndexOf('=');
+			if (idx <= 0) continue;
+
+			var key = line[..idx].Trim();
+			var value = line[(idx + 1)..].Trim().Trim('"', '\''); // strip surrounding quotes
+
+			if (!string.IsNullOrEmpty(key))
+			{
+				Environment.SetEnvironmentVariable(key, value);
+			}
+		}
 	}
 
 
@@ -136,12 +174,15 @@ public static class Program
 		builder.Services.AddSingleton<SharedService>();
 
 		// services for the API controller
-		builder.Services.AddScoped<HttpClient>();
-		builder.Services.AddHttpClient("api", client =>
+		builder.Services.AddHttpClient("api", (sp, client) =>
 		{
-			client.BaseAddress = new Uri("http://localhost:8080");
+			var cfg     = sp.GetRequiredService<IConfiguration>();
+			var baseUrl = cfg["ApiBaseUrl"];
+			if (!string.IsNullOrWhiteSpace(baseUrl))
+			{
+				client.BaseAddress = new Uri(baseUrl);
+			}
 		});
-		
 		
 
 		// services for server-side component rendering
@@ -278,40 +319,40 @@ public static class Program
 			}
 
 			// get the total count first (before applying Skip and Take)
-			//var videoCount = await videos.CountAsync();
+			var videoCount = await videos.CountAsync();
 
-			//// apply pagination
-			//var paginatedData = await videos
-			//						  .Skip((page - 1) * pageSize)
-			//						  .Take(pageSize)
-			//						  .Select(video => new
-			//						  {
-			//							  video.VideoId,
-			//							  video.Title,
-			//							  video.PublishedAt,
-			//							  video.Duration,
-			//							  video.ViewCount,
-			//							  video.LikeCount,
-			//							  video.CommentCount,
-			//							  video.EmbedHtml,
-			//							  video.Captions
+			// apply pagination
+			var paginatedData = await videos
+									  .Skip((page - 1) * pageSize)
+									  .Take(pageSize)
+									  .Select(video => new
+									  {
+										  video.VideoId,
+										  video.Title,
+										  video.PublishedAt,
+										  video.Duration,
+										  video.ViewCount,
+										  video.LikeCount,
+										  video.CommentCount,
+										  video.EmbedHtml,
+										  video.Captions
 
-			//							  // Add other fields you need here
-			//						  })
-			//						  .ToListAsync();
+										  // Add other fields you need here
+									  })
+									  .ToListAsync();
 
-			//// prepare the response object with pagination info
-			//var videoPage = new
-			//{
-			//	CurrentPage = page,
-			//	PageSize    = pageSize,
-			//	VideoCount  = videoCount,
-			//	PageCount   = (int)Math.Ceiling((double)videoCount / pageSize),
-			//	Data        = paginatedData,
-   //             Keywords    = keywords.ToString()
-   //         };
+			// prepare the response object with pagination info
+			var videoPage = new
+			{
+				CurrentPage = page,
+				PageSize    = pageSize,
+				VideoCount  = videoCount,
+				PageCount   = (int)Math.Ceiling((double)videoCount / pageSize),
+				Data        = paginatedData,
+				Keywords    = keywords.ToString()
+			};
 
-			//return Results.Ok(videoPage);
+			return Results.Ok(videoPage);
 		});
 	}
 	#endregion
