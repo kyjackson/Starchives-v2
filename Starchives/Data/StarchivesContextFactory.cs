@@ -26,7 +26,7 @@ public sealed class StarchivesContextFactory : IDesignTimeDbContextFactory<Starc
 		var options = new DbContextOptionsBuilder<StarchivesContext>();
 
 		// Prefer env var if provided (CI/App Platform)
-		var cs = Environment.GetEnvironmentVariable("ConnectionStrings__Default");
+		var cs = Environment.GetEnvironmentVariable("DbConnectionStringPostgres");
 		if (string.IsNullOrWhiteSpace(cs))
 		{
 			// Fallback dummy for design-time operations; EF won't connect for list/bundle

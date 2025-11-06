@@ -10,6 +10,8 @@
 @using Microsoft.EntityFrameworkCore
 @using Serilog
 @using Caption = Starchives.Models.Caption
+@using System.Text.Json
+@using System.Text.Json.Serialization
 
 @inject NavigationManager      Navigation
 @inject Data.StarchivesContext DbContext
@@ -55,7 +57,7 @@ else
 			<h4>DB Updates</h4>
 			<div id="videos-pane" class="p-4 text-white">
 				<h5>Videos</h5>
-				<p>Last Update: TODO</p>
+				<p>Last Update: @GetLastUpdateDisplay("videos")</p>
 				@* button for updating videos *@
 				<button id="button-update-videos" class="btn btn-light btn-sm" @onclick="UpdateVideos">
 					<h5 id="button-update-videos-label" class="heading-md">Update</h5>
@@ -65,7 +67,7 @@ else
 
 			<div id="captions-pane" class="p-4 text-white">
 				<h5>Captions</h5>
-				<p>Last Update: TODO</p>
+				<p>Last Update: @GetLastUpdateDisplay("captions")</p>
 				@* button for updating captions *@
 				<button id="button-update-captions" class="btn btn-light btn-sm" @onclick="UpdateCaptions">
 					<h5 id="button-update-captions-label" class="heading-md">Update</h5>
@@ -75,7 +77,7 @@ else
 
 			<div id="docs-pane" class="p-4 text-white">
 				<h5>Documents</h5>
-				<p>Last Update: TODO</p>
+				<p>Last Update: @GetLastUpdateDisplay("documents")</p>
 				@* button for updating monthly reports and design docs *@
 				<button id="button-update-docs" class="btn btn-light btn-sm" @onclick="UpdateDocuments">
 					<h5 id="button-update-docs-label" class="heading-md">Update</h5>
@@ -106,9 +108,11 @@ else
     private string?    _channelId;
     private string?    _apiKey;
 
+	// cache triggers keyed by trigger key (videos, captions, documents)
+	private Dictionary<string, AdminUpdateTrigger> _triggers = new(StringComparer.OrdinalIgnoreCase);
 
 
-	protected override void OnInitialized()
+	protected override async Task OnInitializedAsync()
 	{
 		// Read from global config (e.g., appsettings.json, appsettings.Development.json, or environment variables)
 		_adminPassword = Configuration["AdminPassword"];
@@ -119,6 +123,16 @@ else
 		{
 			_errorMessage = "Admin password is not set.";
 			return;
+		}
+
+		// Attempt to load existing triggers if DB is reachable; swallow errors so page still loads
+		try
+		{
+			await LoadTriggersAsync();
+		}
+		catch (Exception ex)
+		{
+			Log.Warning(ex, "Failed to load admin update triggers on init.");
 		}
 
 		if (_isAuthenticated)
@@ -132,7 +146,7 @@ else
 	/// <summary>
 	/// Handles the login form submission for the admin console.
 	/// </summary>
-	private void HandleLogin()
+	private async Task HandleLogin()
 	{
 		Debug.Print($"Password Entered: {_loginModel.Password}");
 
@@ -140,11 +154,79 @@ else
 		{
 			_isAuthenticated = true;
             _errorMessage    = string.Empty;
+
+			// load triggers after successful login so the UI updates immediately
+			try
+			{
+				await LoadTriggersAsync();
+			}
+			catch (Exception ex)
+			{
+				Log.Warning(ex, "Failed to load admin update triggers after login.");
+			}
         }
 		else
 		{
 			_errorMessage = "Invalid password.";
 		}
+	}
+
+
+
+	private string GetLastUpdateDisplay(string key)
+	{
+		if (_triggers.TryGetValue(key, out var trigger) && trigger.LastTriggered.HasValue)
+		{
+			// show server local time with offset
+			var local = trigger.LastTriggered.Value.ToLocalTime();
+			return local.ToString("yyyy-MM-dd HH:mm:ss zzz");
+		}
+		return "Never";
+	}
+
+
+	private async Task LoadTriggersAsync()
+	{
+		var list = await DbContext.AdminUpdateTriggers.ToListAsync();
+		_triggers = list.ToDictionary(t => t.TriggerKey ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+		StateHasChanged();
+	}
+
+
+	private async Task UpdateTriggerAsync(string key, bool success, object? detailsObj = null)
+	{
+		// Ensure a trigger row exists and update it
+		var trigger = await DbContext.AdminUpdateTriggers.SingleOrDefaultAsync(t => t.TriggerKey == key);
+		if (trigger == null)
+		{
+			trigger = new AdminUpdateTrigger
+			{
+				TriggerKey = key,
+				Description = key
+			};
+			await DbContext.AdminUpdateTriggers.AddAsync(trigger);
+		}
+
+		trigger.LastTriggered = DateTimeOffset.UtcNow;
+		trigger.LastStatus = success ? "success" : "failed";
+		trigger.LastUser = Environment.UserName;
+		trigger.UpdatedAt = DateTimeOffset.UtcNow;
+
+		if (detailsObj is not null)
+		{
+			var json = JsonSerializer.Serialize(detailsObj);
+			trigger.Details = JsonDocument.Parse(json);
+		}
+		else
+		{
+			trigger.Details = null;
+		}
+
+		await DbContext.SaveChangesAsync();
+
+		// update cache
+		_triggers[key] = trigger;
+		StateHasChanged();
 	}
 
 
@@ -155,78 +237,97 @@ else
 	/// <returns></returns>
 	private async Task UpdateVideos()
 	{
-		var startTime = DateTime.Now;
+		var startTime = DateTime.UtcNow;
 		Log.Information($"Started updating videos");
 
-		var youtubeService = YouTubeApiFacade.GetYouTubeService();
-		var rsiChannel     = await YouTubeApiFacade.GetChannel(youtubeService)!;
-		var rsiUploadIds   = await YouTubeApiFacade.GetUploadIds(youtubeService, rsiChannel);
-		var rsiUploads     = await YouTubeApiFacade.GetUploadDataByIds(youtubeService, rsiUploadIds);
+		var addedCount = 0;
+		var processedCount = 0;
 
-		var videosToUpsert = new List<Video>();
-		foreach (var video in rsiUploads)
+		try
 		{
-			// Ensure UTC DateTime for timestamptz
-			var publishedOffset = video.Snippet.PublishedAtDateTimeOffset;
-			if (publishedOffset is null)
+			var youtubeService = YouTubeApiFacade.GetYouTubeService();
+			var rsiChannel     = await YouTubeApiFacade.GetChannel(youtubeService)!;
+			var rsiUploadIds   = await YouTubeApiFacade.GetUploadIds(youtubeService, rsiChannel);
+			var rsiUploads     = await YouTubeApiFacade.GetUploadDataByIds(youtubeService, rsiUploadIds);
+
+			var videosToUpsert = new List<Video>();
+			foreach (var video in rsiUploads)
 			{
-				// Skip any unexpected nulls to avoid Unspecified/invalid writes
-				continue;
+				// Ensure UTC DateTime for timestamptz
+				var publishedOffset = video.Snippet.PublishedAtDateTimeOffset;
+				if (publishedOffset is null)
+				{
+					// Skip any unexpected nulls to avoid Unspecified/invalid writes
+					continue;
+				}
+
+				var dbVideo = new Video
+				{
+					VideoId      = video.Id,
+					PublishedAt  = publishedOffset.Value.UtcDateTime, // <- UTC, Kind=Utc
+					ChannelId    = _channelId,
+					Title        = video.Snippet.Title,
+					Description  = video.Snippet.Description ?? "N/A",
+					Duration     = video.ContentDetails.Duration,
+					ViewCount    = (long?)video.Statistics.ViewCount    ?? 0,
+					LikeCount    = (long?)video.Statistics.LikeCount    ?? 0,
+					CommentCount = (long?)video.Statistics.CommentCount ?? 0,
+					EmbedHtml    = video.Player.EmbedHtml               ?? ""
+				};
+
+				videosToUpsert.Add(dbVideo);
 			}
 
-			var dbVideo = new Video
+			// Upsert using EF Core (no BulkExtensions)
+			var ids = videosToUpsert.Select(v => v.VideoId).ToList();
+
+			var existing = await DbContext.Videos
+				.Where(v => ids.Contains(v.VideoId))
+				.ToDictionaryAsync(v => v.VideoId);
+
+			var toAdd = new List<Video>();
+
+			foreach (var v in videosToUpsert)
 			{
-				VideoId      = video.Id,
-				PublishedAt  = publishedOffset.Value.UtcDateTime, // <- UTC, Kind=Utc
-				ChannelId    = _channelId,
-				Title        = video.Snippet.Title,
-				Description  = video.Snippet.Description ?? "N/A",
-				Duration     = video.ContentDetails.Duration,
-				ViewCount    = (long?)video.Statistics.ViewCount    ?? 0,
-				LikeCount    = (long?)video.Statistics.LikeCount    ?? 0,
-				CommentCount = (long?)video.Statistics.CommentCount ?? 0,
-				EmbedHtml    = video.Player.EmbedHtml               ?? ""
-			};
+				if (existing.TryGetValue(v.VideoId, out var ev))
+				{
+					ev.PublishedAt  = v.PublishedAt; // already UTC
+					ev.ChannelId    = v.ChannelId;
+					ev.Title        = v.Title;
+					ev.Description  = v.Description;
+					ev.Duration     = v.Duration;
+					ev.ViewCount    = v.ViewCount;
+					ev.LikeCount    = v.LikeCount;
+					ev.CommentCount = v.CommentCount;
+					ev.EmbedHtml    = v.EmbedHtml;
+				}
+				else
+				{
+					toAdd.Add(v);
+				}
+			}
 
-			videosToUpsert.Add(dbVideo);
+			if (toAdd.Count > 0)
+			{
+				await DbContext.Videos.AddRangeAsync(toAdd);
+				addedCount = toAdd.Count;
+			}
+
+			await DbContext.SaveChangesAsync();
+
+			processedCount = videosToUpsert.Count;
+
+			var elapsedTime = DateTime.UtcNow - startTime;
+			Log.Information($"Finished updating videos (time elapsed: {elapsedTime:g})");
+
+			// update trigger as success
+			await UpdateTriggerAsync("videos", true, new { elapsedSeconds = (DateTime.UtcNow - startTime).TotalSeconds, added = addedCount, processed = processedCount });
 		}
-
-		// Upsert using EF Core (no BulkExtensions)
-		var ids = videosToUpsert.Select(v => v.VideoId).ToList();
-
-		var existing = await DbContext.Videos
-			.Where(v => ids.Contains(v.VideoId))
-			.ToDictionaryAsync(v => v.VideoId);
-
-		var toAdd = new List<Video>();
-
-		foreach (var v in videosToUpsert)
+		catch (Exception ex)
 		{
-			if (existing.TryGetValue(v.VideoId, out var ev))
-			{
-				ev.PublishedAt  = v.PublishedAt; // already UTC
-				ev.ChannelId    = v.ChannelId;
-				ev.Title        = v.Title;
-				ev.Description  = v.Description;
-				ev.Duration     = v.Duration;
-				ev.ViewCount    = v.ViewCount;
-				ev.LikeCount    = v.LikeCount;
-				ev.CommentCount = v.CommentCount;
-				ev.EmbedHtml    = v.EmbedHtml;
-			}
-			else
-			{
-				toAdd.Add(v);
-			}
+			Log.Error(ex, "Failed to update videos");
+			await UpdateTriggerAsync("videos", false, new { error = ex.Message });
 		}
-
-		if (toAdd.Count > 0)
-			await DbContext.Videos.AddRangeAsync(toAdd);
-
-		await DbContext.SaveChangesAsync();
-
-		var elapsedTime = DateTime.Now - startTime;
-		Log.Information($"Finished updating videos (time elapsed: {elapsedTime:g})");
 	}
 
 
@@ -237,67 +338,80 @@ else
 	/// <returns></returns>
 	private async Task UpdateCaptions()
 	{
-		var startTime = DateTime.Now;
+		var startTime = DateTime.UtcNow;
 		Log.Information($"Started updating captions");
 
-		var videosWithoutCaptions = await DbContext.Videos
-			.Where(video => !DbContext.Captions.Any(caption => caption.VideoId == video.VideoId))
-			.OrderBy(video => video.PublishedAt)
-			.ToListAsync();
-
-		// Insert captions in batches for reasonable performance without BulkExtensions
-		const int batchSize = 1000;
-		var buffer = new List<Caption>(batchSize);
-
-		var prevAutoDetect = DbContext.ChangeTracker.AutoDetectChangesEnabled;
-		DbContext.ChangeTracker.AutoDetectChangesEnabled = false;
+		var captionsAdded = 0;
 		try
-        {
-            var index = 0;
-			foreach (var video in videosWithoutCaptions)
+		{
+			var videosWithoutCaptions = await DbContext.Videos
+				.Where(video => !DbContext.Captions.Any(caption => caption.VideoId == video.VideoId))
+				.OrderBy(video => video.PublishedAt)
+				.ToListAsync();
+
+			// Insert captions in batches for reasonable performance without BulkExtensions
+			const int batchSize = 1000;
+			var buffer = new List<Caption>(batchSize);
+
+			var prevAutoDetect = DbContext.ChangeTracker.AutoDetectChangesEnabled;
+			DbContext.ChangeTracker.AutoDetectChangesEnabled = false;
+			try
 			{
-				var captionTrack = await YouTubeApiFacade.GetCaptionTrackByVideoId(video.VideoId);
-				if (captionTrack is null) continue;
-
-				foreach (var c in captionTrack.Captions)
+				var index = 0;
+				foreach (var video in videosWithoutCaptions)
 				{
-					if (c.Text == "\n") continue;
+					var captionTrack = await YouTubeApiFacade.GetCaptionTrackByVideoId(video.VideoId);
+					if (captionTrack is null) continue;
 
-					buffer.Add(new Caption
+					foreach (var c in captionTrack.Captions)
 					{
-						VideoId  = video.VideoId,
-						Duration = c.Duration,
-						Offset   = c.Offset,
-						Text     = c.Text
-					});
+						if (c.Text == "\n") continue;
 
-					if (buffer.Count >= batchSize)
-					{
-						await DbContext.Captions.AddRangeAsync(buffer);
-						await DbContext.SaveChangesAsync();
-						buffer.Clear();
+						buffer.Add(new Caption
+						{
+							VideoId  = video.VideoId,
+							Duration = c.Duration,
+							Offset   = c.Offset,
+							Text     = c.Text
+						});
+
+						if (buffer.Count >= batchSize)
+						{
+							await DbContext.Captions.AddRangeAsync(buffer);
+							await DbContext.SaveChangesAsync();
+							captionsAdded += buffer.Count;
+							buffer.Clear();
+						}
 					}
+
+					index++;
+
+					Log.Information($"Caption tracks processed: {index}/{videosWithoutCaptions.Count}");
 				}
 
-                index++;
-
-                Log.Information($"Caption tracks processed: {index}/{videosWithoutCaptions.Count}");
+				if (buffer.Count > 0)
+				{
+					await DbContext.Captions.AddRangeAsync(buffer);
+					await DbContext.SaveChangesAsync();
+					captionsAdded += buffer.Count;
+					buffer.Clear();
+				}
 			}
-
-			if (buffer.Count > 0)
+			finally
 			{
-				await DbContext.Captions.AddRangeAsync(buffer);
-				await DbContext.SaveChangesAsync();
-				buffer.Clear();
+				DbContext.ChangeTracker.AutoDetectChangesEnabled = prevAutoDetect;
 			}
-		}
-		finally
-		{
-			DbContext.ChangeTracker.AutoDetectChangesEnabled = prevAutoDetect;
-		}
 
-		var elapsedTime = DateTime.Now - startTime;
-		Log.Information($"Finished updating captions (time elapsed: {elapsedTime:g})");
+			var elapsedTime = DateTime.UtcNow - startTime;
+			Log.Information($"Finished updating captions (time elapsed: {elapsedTime:g})");
+
+			await UpdateTriggerAsync("captions", true, new { elapsedSeconds = (DateTime.UtcNow - startTime).TotalSeconds, added = captionsAdded });
+		}
+		catch (Exception ex)
+		{
+			Log.Error(ex, "Failed to update captions");
+			await UpdateTriggerAsync("captions", false, new { error = ex.Message });
+		}
 	}
 
 
@@ -308,10 +422,22 @@ else
 	/// <returns></returns>
 	private async Task UpdateDocuments()
 	{
-		// TODO: Implement monthly report update
-		// TODO: Implement design docs update
-		Log.Information($"Documents updated");
-		await DbContext.SaveChangesAsync();
+		var startTime = DateTime.UtcNow;
+		try
+		{
+			// TODO: Implement monthly report update
+			// TODO: Implement design docs update
+			Log.Information($"Documents updated");
+
+			await DbContext.SaveChangesAsync();
+
+			await UpdateTriggerAsync("documents", true, new { elapsedSeconds = (DateTime.UtcNow - startTime).TotalSeconds });
+		}
+		catch (Exception ex)
+		{
+			Log.Error(ex, "Failed to update documents");
+			await UpdateTriggerAsync("documents", false, new { error = ex.Message });
+		}
 	}
 
 

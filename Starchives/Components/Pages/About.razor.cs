@@ -98,7 +98,7 @@ public partial class About : ComponentBase
         {
             Title = "Where can I submit feedback?",
             AnswerHtml = """
-						 Please submit all feedback to <a href=""mailto:admin@starchives.org"">admin@starchives.org</a>,
+						 Please submit all feedback to <a href="mailto:admin@starchives.org">admin@starchives.org</a>,
 						 with the subject 'Starchives Feedback' so I can get back to you easily if necessary.
 						 <br><br>
 						 Alternatively, you can use the contact area below to send me a message easily and anonymously.

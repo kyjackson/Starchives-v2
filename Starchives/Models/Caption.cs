@@ -1,7 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 
-
-
 namespace Starchives.Models;
 
 /// <summary>
