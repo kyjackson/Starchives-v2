@@ -2,10 +2,12 @@
 
 	<PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
 		<TypeScriptTarget>ES6</TypeScriptTarget>
+		<DebugType>embedded</DebugType>
 	</PropertyGroup>
 
 	<PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
 		<TypeScriptTarget>ES6</TypeScriptTarget>
+		<DebugType>embedded</DebugType>
 	</PropertyGroup>
 
 	<PropertyGroup>
@@ -19,6 +21,7 @@
 		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
 		<DockerfileContext>.</DockerfileContext>
 		<DockerComposeProjectPath>..\docker-compose.dcproj</DockerComposeProjectPath>
+		<TypeScriptModuleKind>none</TypeScriptModuleKind>
 	</PropertyGroup>
 
 	<ItemGroup>

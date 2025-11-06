@@ -14,30 +14,30 @@
             <div id="projectStatement" class="p-4 container-fluid purpose">
                 <h4 class="heading-md text-start">The Problem</h4>
                 <p class="text-start indent">
-                    At the time of writing this, there are over 1500 uploads on the Star Citizen YouTube 
-                    channel, ranging anywhere from 30 seconds to over an hour in length. When discussing the game, 
-                    people will often quote a developer or bring up topics mentioned in one or more videos uploaded 
-                    years ago. With multiple weekly uploads over the years, so much has been spoken by CIG that people 
-                    wanting to provide sources for their info will have an exceedingly difficult time doing so if 
+                    As of November 2025, there are nearly 2000 uploads on the Star Citizen YouTube
+                    channel, ranging anywhere from 30 seconds to over an hour in length. When discussing the game,
+                    people will often quote a developer or bring up topics mentioned in one or more videos uploaded
+                    years ago. With multiple weekly uploads over the years, so much has been spoken by CIG that people
+                    wanting to provide sources for their info will have an exceedingly difficult time doing so if
                     they don't know the particular video.
                 </p>
 
                 <h4 class="heading-md text-start">The Solution</h4>
                 <p class="text-start indent">
-                    With the help of YouTube's auto-generated captions (and those provided by CIG, when available), 
-                    this changes. This site allows anyone to search a database of all videos on the Star Citizen channel 
-                    and their associated captions to quickly find the info they're searching for. Timestamps to all 
-                    occurrences are provided for search terms that have a match. Searching for any 
-                    mention of server meshing, bespoke, or ships that punch above their weight class should now take minutes, not hours, 
-                    of combing through videos. Additionally, video stats are provided so anyone can see which 
-                    videos have been the most far-reaching, what the community has been most interested in, <br> and more.
+                    With the help of YouTube's auto-generated captions (and those provided by CIG, when available),
+                    this changes. This site allows anyone to search a database of all videos on the Star Citizen channel
+                    and their associated captions to quickly find the info they're searching for. Timestamps to all
+                    occurrences are provided for search terms that have a match. Searching for any
+                    mention of server meshing, bespoke, or ships that punch above their weight class should now take minutes, not hours,
+                    of combing through videos. Additionally, video stats are provided so anyone can see which
+                    videos have been the most far-reaching, what the community has been most interested in, and more.
                 </p>
 
                 <h4 class="heading-md text-start">Additional Benefits</h4>
                 <p class="text-start indent">
-                    Furthermore, being an <i>archive</i>, this site acts as a quick access hub for many Star Citizen info resources that anyone may 
-                    find useful at one time or another. At the bottom of the page, you'll find external links to several official RSI materials, as 
-                    well as some of my favorite Star Citizen community projects, containing particularly useful information about all 
+                    This site is also a quick access hub for many Star Citizen info resources that anyone may
+                    find useful at one time or another. At the bottom of the page, you'll find external links to several official RSI materials, as
+                    well as some of my favorite Star Citizen community projects, containing particularly useful information about all
                     aspects of the game and its development.
                 </p>
             </div>
@@ -46,9 +46,43 @@
             <div id="faq" class="py-4 px-5 container-fluid">
                 <h3 class="heading-md">FAQ</h3>
                 <!-- Questions are appended to this accordion -->
-                <div id="faqAccordion" class="mx-auto w-100 accordion accordion-flush"></div>
+                <div id="faqAccordion" class="mx-auto w-100 accordion accordion-flush">
+                    @for (int i = 0; i < Questions.Count; i++)
+                    {
+                        var q = Questions[i];
+                        <div id="@($"q{i}")" class="bg-dark pt-3 accordion-item">
+
+                            <h2 id="@($"header-q{i}")" class="accordion-header">
+                                <button class="bg-dark bg-gradient text-white accordion-button collapsed d-flex"
+                                        type="button"
+                                        data-bs-toggle="collapse"
+                                        data-bs-target="@($"#collapse-q{i}")"
+                                        aria-controls="@($"collapse-q{i}")"
+                                        aria-expanded="false">
+
+                                    <div class="accordion-header-text flex-grow-1">
+                                        @q.Title
+                                    </div>
+                                </button>
+                            </h2>
+
+                            <div id="@($"collapse-q{i}")"
+                                 class="bg-secondary accordion-collapse collapse"
+                                 aria-labelledby="@($"header-q{i}")">
+
+                                <!-- ensure body text is high-contrast against bg-dark -->
+                                <div id="@($"body-q{i}")" class="bg-dark accordion-body text-start text-white">
+                                    <p class="ps-4 text-white">
+                                        @((MarkupString)q.AnswerHtml)
+                                    </p>
+                                </div>
+                            </div>
+
+                        </div>
+                    }
+                </div>
             </div>
-            
+
         </div>
 
         <hr>
@@ -59,19 +93,17 @@
             <!-- Personal statement -->
             <div id="authorStatement" class="p-2 container-fluid devNote">
                 <h5 class="text-start">Developer's Note</h5>
-                
+
                 <p class="text-start statement">
-                    Thank you for visiting my site. The amazing developers at CIG and the passionate Star Citizen community 
-                    both inspire the ongoing pursuit of my goals in software 
-                    development. This site is among the first of hopefully many fruits to result from that inspiration.
+                    Thanks for visiting my site. The passionate developers at CIG and the Star Citizen community
+                    both inspire my pursuit of software development goals. This site was  among the first of many fruits that
+                    continue to result from that inspiration.
                     <br><br>
                     If you found this site helpful as a prospective player, consider signing up at RSI with my referral code:
-                    <br> 
-                    <a href="https://robertsspaceindustries.com/enlist?referral=STAR-NRZ7-WNLV">STAR-NRZ7-WNLV</a>
-                    <br>
-                    If you found it useful as a fellow fan of the game, consider <a href="https://www.paypal.com/donate/?business=2AM6DLL3WFDF6&no_recurring=0&item_name=As+the+creator+of+Starchives%2C+thank+you+for+helping+keep+the+site+online.+All+donations+go+toward+the+site%27s+monthly+expenses.&currency_code=USD">donating</a> to help keep it online.
-                    <br>
-                    If you have any feedback, questions, or job offers, feel free to contact me <a href="mailto:admin@starchives.org">here</a>
+                    <br><br>
+                    <a href="https://www.robertsspaceindustries.com/enlist?referral=STAR-NRZ7-WNLV">STAR-NRZ7-WNLV</a>
+                    <br><br>
+                    If you have any questions or feedback, feel free to contact me <a href="mailto:admin@starchives.org">here</a>
                     or use the box to the right.
                 </p>
             </div>
@@ -81,72 +113,77 @@
             <!-- Contact section -->
             <div id="contactSection" class="py-2 px-4 container-fluid justify-content-center">
 
-                <form id="contactWindow" class="needs-validation" novalidate>
+                <form id="contactWindow" class="needs-validation" novalidate @onsubmit="OnSubmit" @onsubmit:preventDefault>
 
                     <!-- Contact form submit button -->
-                    <button id="contactButton" class="btn btn-light" type="submit">
-                        <h5 id="contactButtonLabel" class="heading-md">Contact</h5>
+                    <button id="contactButton" class="btn btn-light" type="submit" disabled="@IsSending">
+                        <h5 id="contactButtonLabel" class="heading-md">@ContactButtonLabel</h5>
                     </button>
-                    <div id="sendingIcon" class="spinner-grow spinner-grow-sm float-end" role="status" aria-hidden="true"></div>
+                    <div id="sendingIcon" class="spinner-grow spinner-grow-sm float-end" role="status" aria-hidden="true" style="visibility:@(IsSending ? "visible" : "hidden")"></div>
 
-                    <div id="contactResults" class="justify-content-center"></div>
-                    
+                    <div id="contactResults" class="justify-content-center mt-2">
+                        @if (!string.IsNullOrEmpty(ContactResultHtml))
+                        {
+                            <div>@((MarkupString)ContactResultHtml)</div>
+                        }
+                    </div>
+
                     <div class="row">
-                    <div class="col-6 text-start mb-2">
-                        <label for="contactInputName" class="form-label">Contact Info:</label>
-                        <input 
-                            type="text" 
-                            class="form-control form-control-sm" 
-                            id="contactInputName" 
-                            placeholder="Email / Discord (if reply is desired)"
-                            maxlength="64"
-                            required>
-                        <div class="invalid-feedback">
-                            Contact info field cannot be empty.
+                        <div class="col-6 text-start mb-2">
+                            <label for="contactInputName" class="form-label">Contact Info:</label>
+                            <input type="text"
+                                   class="form-control form-control-sm @(IsNameInvalid ? "is-invalid" : null)"
+                                   id="contactInputName"
+                                   placeholder="Email / Discord (if reply is desired)"
+                                   maxlength="64"
+                                   @bind="ContactName"
+                                   @oninput="ClearNameInvalid"
+                                   required>
+                            <div class="invalid-feedback">
+                                Contact info field cannot be empty.
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="col-6 text-start mb-2">
-                        <label for="contactSelectTopic" class="form-label">Topic:</label>
-                        <select 
-                            class="form-select form-select-sm" 
-                            id="contactSelectTopic"
-                            aria-label=".form-select-sm"
-                            required>
-                            <option value="" selected>Select a topic</option>
-                            <option value="Suggestion">Suggestion</option>
-                            <option value="Question">Question</option>
-                            <option value="Comment">Comment</option>
-                            <option value="Bug Report">Bug Report</option>
-                            <option value="Other">Other</option>
-                        </select>
-                        <div class="invalid-feedback">
-                            Topic must be selected.
+                        <div class="col-6 text-start mb-2">
+                            <label for="contactSelectTopic" class="form-label">Topic:</label>
+                            <select class="form-select form-select-sm @(IsTopicInvalid ? "is-invalid" : null)"
+                                    id="contactSelectTopic"
+                                    aria-label=".form-select-sm"
+                                    @bind="ContactTopic"
+                                    required>
+                                <option value="" selected>Select a topic</option>
+                                <option value="Suggestion">Suggestion</option>
+                                <option value="Question">Question</option>
+                                <option value="Comment">Comment</option>
+                                <option value="Bug Report">Bug Report</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <div class="invalid-feedback">
+                                Topic must be selected.
+                            </div>
                         </div>
-                    </div>
                     </div>
 
                     <div class="text-start mb-2">
                         <label for="contactInputContent" class="form-label">Feedback:</label>
-                        <textarea 
-                            class="form-control form-control-sm" 
-                            id="contactInputContent" 
-                            rows="2" 
-                            placeholder="Questions, comments, something else? Write it here!"
-                            maxlength="512"
-                            required></textarea>
+                        <textarea class="form-control form-control-sm @(IsContentInvalid ? "is-invalid" : null)"
+                                  id="contactInputContent"
+                                  rows="2"
+                                  placeholder="Questions, comments, something else? Write it here!"
+                                  maxlength="512"
+                                  @bind="ContactMessage"
+                                  @oninput="ClearContentInvalid"
+                                  required></textarea>
                         <div class="invalid-feedback">
                             Feedback field cannot be empty.
                         </div>
                     </div>
                 </form>
-                
+
             </div>
-            
+
         </div>
 
     </div>
 
 </div>
-
-<script src="js/aboutScript.js"></script>

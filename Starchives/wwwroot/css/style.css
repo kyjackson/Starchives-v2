@@ -296,6 +296,7 @@ hr.divider {
 
 main a {
     color: #fff;
+    text-decoration: underline;
 }
 
 main a:hover,
@@ -335,4 +336,10 @@ main a:focus {
     margin-top: 0.25rem !important;
     white-space: nowrap !important;
     display: inline-block !important;
+}
+
+.accordion,
+.accordion-flush {
+    /* prevent any inherited light borders from showing */
+    --bs-accordion-border-width: 0;
 }
