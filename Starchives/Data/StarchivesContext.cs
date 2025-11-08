@@ -54,6 +54,19 @@ public class StarchivesContext : DbContext
 		modelBuilder.Entity<Caption>()
 					.Property(b => b.VideoId)
 					.IsRequired();
+
+		// Configure full-text search
+		modelBuilder.Entity<Caption>()
+					.HasGeneratedTsVectorColumn(
+						c => c.TextSearch,
+						"english",
+						c => new { c.Text })
+					.HasIndex(c => c.TextSearch)
+					.HasMethod("GIN");
+
+		// Index on VideoId for join optimization
+		modelBuilder.Entity<Caption>()
+					.HasIndex(c => c.VideoId);
 	}
 	#endregion
 }

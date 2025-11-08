@@ -1,4 +1,5 @@
 @page "/about"
+@rendermode InteractiveServer
 
 <PageTitle>Starchives</PageTitle>
 
@@ -113,7 +114,8 @@
             <!-- Contact section -->
             <div id="contactSection" class="py-2 px-4 container-fluid justify-content-center">
 
-                <form id="contactWindow" class="needs-validation" novalidate @onsubmit="OnSubmit" @onsubmit:preventDefault>
+                <EditForm Model="@ContactForm" OnValidSubmit="OnSubmit" FormName="contactForm">
+                    <DataAnnotationsValidator />
 
                     <!-- Contact form submit button -->
                     <button id="contactButton" class="btn btn-light" type="submit" disabled="@IsSending">
@@ -131,54 +133,41 @@
                     <div class="row">
                         <div class="col-6 text-start mb-2">
                             <label for="contactInputName" class="form-label">Contact Info:</label>
-                            <input type="text"
-                                   class="form-control form-control-sm @(IsNameInvalid ? "is-invalid" : null)"
-                                   id="contactInputName"
-                                   placeholder="Email / Discord (if reply is desired)"
-                                   maxlength="64"
-                                   @bind="ContactName"
-                                   @oninput="ClearNameInvalid"
-                                   required>
-                            <div class="invalid-feedback">
-                                Contact info field cannot be empty.
-                            </div>
+                            <InputText class="form-control form-control-sm"
+                                       id="contactInputName"
+                                       placeholder="Email / Discord (if reply is desired)"
+                                       maxlength="64"
+                                       @bind-Value="ContactForm.ContactName" />
+                            <ValidationMessage For="@(() => ContactForm.ContactName)" />
                         </div>
 
                         <div class="col-6 text-start mb-2">
                             <label for="contactSelectTopic" class="form-label">Topic:</label>
-                            <select class="form-select form-select-sm @(IsTopicInvalid ? "is-invalid" : null)"
-                                    id="contactSelectTopic"
-                                    aria-label=".form-select-sm"
-                                    @bind="ContactTopic"
-                                    required>
-                                <option value="" selected>Select a topic</option>
+                            <InputSelect class="form-select form-select-sm"
+                                         id="contactSelectTopic"
+                                         @bind-Value="ContactForm.ContactTopic">
+                                <option value="">Select a topic</option>
                                 <option value="Suggestion">Suggestion</option>
                                 <option value="Question">Question</option>
                                 <option value="Comment">Comment</option>
                                 <option value="Bug Report">Bug Report</option>
                                 <option value="Other">Other</option>
-                            </select>
-                            <div class="invalid-feedback">
-                                Topic must be selected.
-                            </div>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => ContactForm.ContactTopic)" />
                         </div>
                     </div>
 
                     <div class="text-start mb-2">
                         <label for="contactInputContent" class="form-label">Feedback:</label>
-                        <textarea class="form-control form-control-sm @(IsContentInvalid ? "is-invalid" : null)"
-                                  id="contactInputContent"
-                                  rows="2"
-                                  placeholder="Questions, comments, etc."
-                                  maxlength="512"
-                                  @bind="ContactMessage"
-                                  @oninput="ClearContentInvalid"
-                                  required></textarea>
-                        <div class="invalid-feedback">
-                            Feedback field cannot be empty.
-                        </div>
+                        <InputTextArea class="form-control form-control-sm"
+                                       id="contactInputContent"
+                                       rows="2"
+                                       placeholder="Questions, comments, etc."
+                                       maxlength="512"
+                                       @bind-Value="ContactForm.ContactMessage" />
+                        <ValidationMessage For="@(() => ContactForm.ContactMessage)" />
                     </div>
-                </form>
+                </EditForm>
 
             </div>
 

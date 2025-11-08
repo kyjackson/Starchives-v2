@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+﻿using NpgsqlTypes;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Starchives.Models;
 
@@ -37,4 +38,10 @@ public class Caption
 	/// The YouTube video to which the caption belongs.
 	/// </summary>
 	public Video Video { get; set; }
+
+	/// <summary>
+	/// Full-text search vector for the caption text (computed column).
+	/// </summary>
+	[Column("text_search")]
+	public NpgsqlTsVector? TextSearch { get; set; }
 }

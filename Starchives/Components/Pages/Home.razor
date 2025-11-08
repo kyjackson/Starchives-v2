@@ -373,7 +373,10 @@
 					PageNumber = _videoPage.CurrentPage;
 
 				var elapsed = DateTime.Now - startTime;
-				_searchResultsMessage = $"Found {_videoPage?.VideoCount} videos containing '{Keywords}' in {elapsed:s\\.ff} seconds";
+				
+				// Only show timing message on initial search (not page navigation)
+				if (!_isPageNavigation)
+					_searchResultsMessage = $"Found {_videoPage?.VideoCount} videos containing '{Keywords}' in {elapsed:s\\.ff} seconds";
 
 				if (!_isPageNavigation)
 					EnableSearchButton();

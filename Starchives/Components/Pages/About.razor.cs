@@ -1,10 +1,16 @@
-using Microsoft.AspNetCore.Components;
+ï»¿using Microsoft.AspNetCore.Components;
+using Serilog;
+using Starchives.Modules.Email;
+using System.ComponentModel.DataAnnotations;
 
 namespace Starchives.Components.Pages;
 
 public partial class About : ComponentBase
 {
     [Inject] private HttpClient Http { get; set; } = default!;
+
+    // Contact form model
+    private ContactFormModel ContactForm { get; set; } = new();
 
     // FAQ model (kept minimal)
     private class FaqQuestion
@@ -63,8 +69,7 @@ public partial class About : ComponentBase
         {
             Title = "How often is this site updated?",
             AnswerHtml = """
-						 Currently the video database is updated about once per week while the site is still
-						 undergoing major changes. Because of this, you may notice the quantity of views, likes, and comments 
+						 Currently the video database is updated about once per week. Because of this, you may notice the quantity of views, likes, and comments 
 						 displayed next to each video result are different than what Youtube says when you open the video
 						 on that site. Also, the most recent videos (within 1 week) may not be available right away.
 						 <br><br>
@@ -108,95 +113,117 @@ public partial class About : ComponentBase
         {
             Title = "Why do searches take so long?",
             AnswerHtml = """
-						 The captions take up a large amount of space relative to all other data retrieved. Because all of this data is
+						 The captions take up a large amount of space relative to all other data retrieved. Because a high volume of data is
 						 sent from the database to the server and then from the server to the user, response times quickly get noticeably worse 
-						 as more results are returned. 
+						 as more results are returned. However, the actual search that occurs on the database is fairly optimized due to the
+						 specialized full-text search indexing offered by Postgres.
 						 <br><br>
 						 Additionally, you may experience worse response times while there's heavy traffic on the site. 
 						 For this reason, the amount of results per page is capped at 10, and the total amount of results
-						 is retrieved asynchronously from the page results, to ensure that response times are kept as low as possible.
+						 is retrieved asynchronously from the page results to ensure that response times are kept as low as possible.
 						 """
         }
     };
 
     // Contact form state
-    private string _contactTopic = string.Empty;
-    private string ContactName { get; set; } = string.Empty;
-    private string ContactTopic
-    {
-        get => _contactTopic;
-        set
-        {
-            if (_contactTopic == value) return;
-            _contactTopic = value;
-            IsTopicInvalid = false;
-        }
-    }
-    private string ContactMessage { get; set; } = string.Empty;
-
-    private bool IsNameInvalid { get; set; }
-    private bool IsTopicInvalid { get; set; }
-    private bool IsContentInvalid { get; set; }
-
     private bool IsSending { get; set; }
     private string ContactResultHtml { get; set; } = string.Empty;
     private string ContactButtonLabel => IsSending ? "Sending" : (HasSent ? "Sent" : "Contact");
     private bool HasSent { get; set; }
 
-    private void ClearNameInvalid(ChangeEventArgs _ = default) => IsNameInvalid = false;
-    private void ClearContentInvalid(ChangeEventArgs _ = default) => IsContentInvalid = false;
+    private static string? DeriveEmail(string contactInfo)
+    {
+        if (string.IsNullOrWhiteSpace(contactInfo)) return null;
+        var trimmed = contactInfo.Trim();
+        var atIdx = trimmed.IndexOf('@');
+        if (atIdx < 1) return null;
+
+        var dotAfterAt = trimmed.IndexOf('.', atIdx + 1);
+        if (dotAfterAt < 0) return null;
+
+        return trimmed;
+    }
 
     private async Task OnSubmit()
     {
-        // Validate
-        IsNameInvalid = string.IsNullOrWhiteSpace(ContactName);
-        IsTopicInvalid = string.IsNullOrWhiteSpace(ContactTopic);
-        IsContentInvalid = string.IsNullOrWhiteSpace(ContactMessage);
-
-        if (IsNameInvalid || IsTopicInvalid || IsContentInvalid)
-        {
-            return;
-        }
-
-        IsSending = true;
+        Log.Information("Contact form OnSubmit called");
+        
+        IsSending         = true;
         ContactResultHtml = string.Empty;
-        HasSent = false;
+		HasSent           = false;
         StateHasChanged();
 
         try
         {
-            var form = new Dictionary<string, string>
+            var req = new ContactRequest
             {
-                ["sender"] = ContactName,
-                ["topic"] = ContactTopic,
-                ["message"] = ContactMessage
+                Name    = ContactForm.ContactName,
+                Email   = DeriveEmail(ContactForm.ContactName),
+                Subject = ContactForm.ContactTopic,
+                Message = ContactForm.ContactMessage
             };
 
-            using var content = new FormUrlEncodedContent(form);
-            // Post to same endpoint the original site used
+            Log.Information("Posting to /api/contact with Name={Name}, Topic={Topic}, MessageLength={Length}", 
+                req.Name, req.Subject, req.Message?.Length ?? 0);
+
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            var response = await Http.PostAsync("/contact", content, cts.Token);
+            var response = await Http.PostAsJsonAsync("/api/contact", req, cts.Token);
+
+            Log.Information("Response status: {StatusCode}", response.StatusCode);
 
             if (response.IsSuccessStatusCode)
             {
-                ContactResultHtml = @"<p class=""mx-auto justify-content-center""><br>Form received successfully. Thanks for your submission!</p>";
+                ContactResultHtml = @"<div class=""alert alert-success"" role=""alert"">Message was sent successfully.</div>";
                 HasSent = true;
-                // keep fields if needed — original script commented out clearing
-                // ContactName = ContactMessage = ContactTopic = string.Empty;
+                // Clear form after success
+                ContactForm = new();
+                Log.Information("Contact form submitted successfully");
             }
             else
             {
-                ContactResultHtml = @"<p class=""mx-auto justify-content-center""><br>Something went wrong. Please try again later, or submit your feedback manually <a href=""mailto:admin@starchives.org"">here</a>.</p>";
+                var error = await SafeReadErrorAsync(response);
+                Log.Warning("Contact form submission failed: {Error}", error);
+                ContactResultHtml = $@"<div class=""alert alert-danger"" role=""alert"">{error} Please try again later, or submit your feedback manually <a href=""mailto:admin@starchives.org"" class=""alert-link"">here</a>.</div>";
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            ContactResultHtml = @"<p class=""mx-auto justify-content-center""><br>Something went wrong. Please try again later, or submit your feedback manually <a href=""mailto:admin@starchives.org"">here</a>.</p>";
+            Log.Error(ex, "Exception during contact form submission");
+            ContactResultHtml = @"<div class=""alert alert-danger"" role=""alert"">Something went wrong. Please try again later, or submit your feedback manually <a href=""mailto:admin@starchives.org"" class=""alert-link"">here</a>.</div>";
         }
         finally
         {
             IsSending = false;
             StateHasChanged();
         }
+    }
+
+    private static async Task<string> SafeReadErrorAsync(HttpResponseMessage resp)
+    {
+        try
+        {
+            var txt = await resp.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(txt)) return "Unexpected error.";
+            return txt.Length > 1024 ? "Error submitting form." : txt;
+        }
+        catch
+        {
+            return "Unexpected error.";
+        }
+    }
+
+    // Form model with validation
+    private class ContactFormModel
+    {
+        [MaxLength(100)]
+        public string? ContactName { get; set; }
+
+        [Required(ErrorMessage = "Please select a topic")]
+        public string ContactTopic { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Feedback is required")]
+        [MinLength(10, ErrorMessage = "Feedback must be at least 10 characters")]
+        [MaxLength(1000)]
+        public string ContactMessage { get; set; } = string.Empty;
     }
 }

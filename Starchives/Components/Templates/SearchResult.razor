@@ -112,7 +112,7 @@
 	private IEnumerable<Caption> FilteredCaptions =>
 		string.IsNullOrWhiteSpace(Keywords)
 			? Video.Captions
-			: Video.Captions.Where(c => c.Text?.Contains(Keywords, StringComparison.OrdinalIgnoreCase) == true);
+			: Video.Captions.Where(c => MatchesSearchTerms(c.Text, Keywords));
 
 	protected override void OnParametersSet()
 	{
@@ -120,6 +120,25 @@
 		_orderedCaptions = Video.Captions
 			.OrderBy(c => c.Offset)
 			.ToList();
+	}
+
+	/// <summary>
+	/// Checks if caption text matches the search keywords using flexible matching.
+	/// Trims whitespace and shows captions that contain any of the individual search terms.
+	/// </summary>
+	private static bool MatchesSearchTerms(string? captionText, string keywords)
+	{
+		if (string.IsNullOrWhiteSpace(captionText)) return false;
+		
+		// Trim the keywords to handle trailing/leading spaces
+		var trimmedKeywords = keywords.Trim();
+		if (string.IsNullOrWhiteSpace(trimmedKeywords)) return false;
+		
+		// Split keywords and check if ANY term appears in the caption
+		var terms = trimmedKeywords.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+		
+		return terms.Any(term => 
+			captionText.Contains(term, StringComparison.OrdinalIgnoreCase));
 	}
 
 	private ValueTask SeekToAsync(int seconds)

@@ -7,6 +7,7 @@ using Serilog.Events;
 using Starchives.Components;
 using Starchives.Data;
 using Starchives.Facades.YouTube;
+using Starchives.Modules.Email;
 
 namespace Starchives;
 
@@ -148,9 +149,6 @@ public static class Program
 		// services for enhanced logging
 		builder.Services.AddSerilog();
 
-		// services for credential configuration
-		builder.Services.Configure<Keys>(builder.Configuration.GetSection("Keys"));
-
 		// services for database access
 		builder.Services.AddDbContextFactory<StarchivesContext>(options =>
 																	options
@@ -163,7 +161,6 @@ public static class Program
 
 		// services for custom logic
 		builder.Services.AddScoped<IVideoApiFacade, YouTubeApiFacade>();
-		builder.Services.AddSingleton<SharedService>();
 
 		// services for the API controller
 		builder.Services.AddScoped(sp =>
@@ -179,6 +176,11 @@ public static class Program
 			return new HttpClient { BaseAddress = baseUri };
 		});
 
+		// Configure email options from configuration (appsettings.json or environment variables)
+		builder.Services.Configure<ContactEmailOptions>(builder.Configuration.GetSection("ContactEmail"));
+
+		// services for email sending
+		builder.Services.AddTransient<IEmailSender, MailKitEmailSender>();
 
 		// services for server-side component rendering
 		builder.Services.AddRazorComponents()
@@ -285,10 +287,22 @@ public static class Program
 			var page            = int.TryParse(request.Query["page"],     out var parsedPage) ? parsedPage : 1;
 			var pageSize        = int.TryParse(request.Query["pageSize"], out var parsedPageSize) ? parsedPageSize : 10;
 
-			// build the base query: filter by caption text match first
-			var videos = db.Videos
-						  .Where(video => db.Captions
-											.Any(caption => caption.VideoId == video.VideoId && EF.Functions.Like(caption.Text.ToLower(), $"%{keywords.ToLower()}%")));
+			// Process keywords: split by spaces and join with & for AND logic
+			// Use websearch_to_tsquery for flexible, LIKE-style search with full-text speed
+			var searchTerms = string.IsNullOrWhiteSpace(keywords) 
+				? "" 
+				: keywords.Trim();
+
+			var videos = string.IsNullOrWhiteSpace(searchTerms)
+				? db.Videos.AsQueryable()
+				: db.Videos.Where(video => db.Captions.Any(caption => 
+					caption.VideoId == video.VideoId && (
+						// Try full-text first (smart word matching)
+						caption.TextSearch!.Matches(EF.Functions.WebSearchToTsQuery("english", searchTerms))
+						||
+						// Fallback to substring (now indexed via trigram)
+						EF.Functions.ILike(caption.Text, $"%{searchTerms}%")
+					)));
 
 			// apply published date range filter if provided (expected as years, e.g. 2024)
 			if (int.TryParse(publishFromRaw, out var publishFromYear))
@@ -336,7 +350,15 @@ public static class Program
 											  video.LikeCount,
 											  video.CommentCount,
 											  video.EmbedHtml,
-											  video.Captions
+											  // project captions without TextSearch
+											  Captions = video.Captions.Select(c => new
+											  {
+												  c.CaptionId,
+												  c.Duration,
+												  c.Offset,
+												  c.Text,
+												  c.VideoId
+											  }).ToList()
 										  })
 										  .ToListAsync();
 
@@ -348,7 +370,7 @@ public static class Program
 					VideoCount  = videoCount,
 					PageCount   = (int)Math.Ceiling((double)videoCount / pageSize),
 					Data        = paginatedData,
-					Keywords    = keywords
+					Keywords    = searchTerms  // Use trimmed value
 				};
 
 				return Results.Ok(videoPage);
@@ -367,7 +389,15 @@ public static class Program
 									  video.LikeCount,
 									  video.CommentCount,
 									  video.EmbedHtml,
-									  video.Captions
+									  // project captions without TextSearch
+									  Captions = video.Captions.Select(c => new
+									  {
+										  c.CaptionId,
+										  c.Duration,
+										  c.Offset,
+										  c.Text,
+										  c.VideoId
+									  }).ToList()
 								  })
 								  .ToListAsync();
 
@@ -447,10 +477,45 @@ public static class Program
 				VideoCount  = filteredCount,
 				PageCount   = (int)Math.Ceiling((double)filteredCount / pageSize),
 				Data        = pageData,
-				Keywords    = keywords
+				Keywords    = searchTerms  // Use trimmed value
 			};
 
 			return Results.Ok(resultPage);
+		});
+
+		app.MapPost("/api/contact", async (ContactRequest req, IEmailSender emailSender) =>
+		{
+			// Basic validation
+			if (string.IsNullOrWhiteSpace(req.Message) || req.Message.Length < 10)
+				return Results.BadRequest("Message too short.");
+
+			if (req.Message.Length > 8000)
+				return Results.BadRequest("Message too long.");
+
+			var subject = string.IsNullOrWhiteSpace(req.Subject)
+							  ? "New Starchives contact form submission"
+							  : $"Starchives Mail: {req.Subject}";
+
+			var body = $"""
+					   New message received from Starchives contact form
+
+					   Name: {req.Name ?? "(not provided)"}
+					   Email: {req.Email ?? "(not provided)"}
+
+					   Message:
+					   {req.Message}
+					   """;
+
+			try
+			{
+				await emailSender.SendAsync(subject, body, req.Email);
+				return Results.Ok();
+			}
+			catch (Exception ex)
+			{
+				Log.Error(ex, "Failed to send contact email");
+				return Results.Problem("Failed to send email. Please try again later.");
+			}
 		});
 	}
 
